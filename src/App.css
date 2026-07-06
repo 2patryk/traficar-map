@@ -1,0 +1,148 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font-family: system-ui, sans-serif;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  flex-wrap: wrap;
+}
+
+.app-header h1 {
+  font-size: 1.1rem;
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.zone-picker {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.app-header button {
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #7c3aed;
+  background: #7c3aed;
+  color: white;
+  cursor: pointer;
+}
+
+.app-header button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.car-map {
+  flex: 1 1 60%;
+  min-height: 0;
+}
+
+.car-list {
+  flex: 1 1 40%;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid #e0e0e0;
+}
+
+.car-list li button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-bottom: 1px solid #eee;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.car-list li button:hover {
+  background: #f7f5ff;
+}
+
+.badge {
+  background: #7c3aed;
+  color: white;
+  font-weight: bold;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.plate {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.location {
+  color: #666;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.distance {
+  color: #7c3aed;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.empty-state,
+.hint {
+  padding: 0.5rem 1rem;
+  color: #666;
+}
+
+.error {
+  padding: 0.5rem 1rem;
+  color: #c0392b;
+}
+
+.car-badge {
+  background: #7c3aed;
+  color: white;
+  font-weight: bold;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 4px 8px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .app-main {
+    flex-direction: row;
+  }
+
+  .car-map {
+    flex: 1 1 65%;
+  }
+
+  .car-list {
+    flex: 1 1 35%;
+    border-top: none;
+    border-left: 1px solid #e0e0e0;
+  }
+}
