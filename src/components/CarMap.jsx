@@ -1,8 +1,16 @@
 import { useEffect } from 'react'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { GeoJSON, MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { googleMapsUrl } from '../utils/geo.js'
+
+const ZONE_STYLE = {
+  color: '#a78bfa',
+  weight: 2,
+  dashArray: '6 6',
+  fillColor: '#8b5cf6',
+  fillOpacity: 0.06,
+}
 
 function carIcon(amount) {
   return divIcon({
@@ -28,7 +36,7 @@ function Recenter({ center, zoom }) {
   return null
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition }) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, zoneId }) {
   return (
     <MapContainer center={center} zoom={zoom} className="car-map">
       <Recenter center={center} zoom={zoom} />
@@ -36,6 +44,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition }) {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      {relocationZone && <GeoJSON key={zoneId} data={relocationZone} style={ZONE_STYLE} />}
       {userPosition && (
         <Marker position={[userPosition.lat, userPosition.lng]} icon={userIcon} zIndexOffset={1000} />
       )}

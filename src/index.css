@@ -13,9 +13,9 @@
   --danger: #f87171;
   --shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.55);
 
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-body: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --font-display: 'Barlow Condensed', system-ui, sans-serif;
+  --font-body: 'Barlow', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
 
   color-scheme: dark;
   font: 16px/1.5 var(--font-body);

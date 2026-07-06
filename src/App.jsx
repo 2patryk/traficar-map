@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchZones } from './api.js'
 import { useCars } from './hooks/useCars.js'
 import { useGeolocation } from './hooks/useGeolocation.js'
+import { useRelocationZone } from './hooks/useRelocationZone.js'
+import { zoneCenter } from './utils/zoneCenters.js'
 import { ZonePicker } from './components/ZonePicker.jsx'
 import { CarMap } from './components/CarMap.jsx'
 import { CarList } from './components/CarList.jsx'
 import './App.css'
 
-const ZONE_STORAGE_KEY = 'traficar-map:zoneId'
 const DEFAULT_ZONE_NAME = 'Łódź'
 const DISCOUNT_TYPES = ['Relokacja']
 
@@ -30,33 +31,30 @@ function LocationIcon() {
 
 function App() {
   const [zones, setZones] = useState([])
-  const [zoneId, setZoneId] = useState(() => localStorage.getItem(ZONE_STORAGE_KEY) ?? '')
+  const [zoneId, setZoneId] = useState('')
   const [zonesError, setZonesError] = useState(null)
 
   useEffect(() => {
     fetchZones()
       .then((data) => {
         setZones(data)
-        if (!zoneId) {
-          const defaultZone = data.find((z) => z.name === DEFAULT_ZONE_NAME) ?? data[0]
-          if (defaultZone) setZoneId(String(defaultZone.id))
-        }
+        const defaultZone = data.find((z) => z.name === DEFAULT_ZONE_NAME) ?? data[0]
+        if (defaultZone) setZoneId(String(defaultZone.id))
       })
       .catch((err) => setZonesError(err.message))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    if (zoneId) localStorage.setItem(ZONE_STORAGE_KEY, zoneId)
-  }, [zoneId])
 
   const { cars, loading, error, refresh, lastUpdated } = useCars(zoneId, DISCOUNT_TYPES)
   const { position, denied, loading: locating, request: requestLocation } = useGeolocation()
+  const relocationZone = useRelocationZone(zoneId)
 
   const zone = useMemo(() => zones.find((z) => String(z.id) === String(zoneId)), [zones, zoneId])
-  const zoneCenter = zone ? { lat: parseFloat(zone.lat), lng: parseFloat(zone.lng) } : null
-  const origin = position ?? zoneCenter
-  const center = origin ? [origin.lat, origin.lng] : [52.2297, 21.0122]
+  const origin = position ?? zoneCenter(zone)
+  const center = useMemo(
+    () => (origin ? [origin.lat, origin.lng] : [52.2297, 21.0122]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key on primitives, not `origin`, so the array reference stays stable across unrelated re-renders
+    [origin?.lat, origin?.lng],
+  )
 
   return (
     <div className="app">
@@ -75,7 +73,7 @@ function App() {
           <ZonePicker zones={zones} zoneId={zoneId} onChange={setZoneId} />
           <button
             type="button"
-            className={`icon-button${locating ? ' spin' : ''}`}
+            className={`icon-button${locating ? ' busy' : ''}`}
             onClick={requestLocation}
             title="Użyj mojej lokalizacji"
           >
@@ -102,7 +100,13 @@ function App() {
 
       {zoneId && (
         <main className="app-main">
-          <CarMap cars={cars} center={center} userPosition={position} />
+          <CarMap
+            cars={cars}
+            center={center}
+            userPosition={position}
+            relocationZone={relocationZone}
+            zoneId={zoneId}
+          />
           <CarList cars={cars} origin={origin} loading={loading} />
         </main>
       )}

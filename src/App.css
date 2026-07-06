@@ -28,9 +28,10 @@
 
 .brand-name {
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -126,6 +127,20 @@
 
 .spin svg {
   animation: spin 0.9s linear infinite;
+}
+
+.busy svg {
+  animation: pulse-icon 1s ease-in-out infinite;
+}
+
+@keyframes pulse-icon {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 @keyframes spin {
@@ -358,7 +373,8 @@
 @media (prefers-reduced-motion: reduce) {
   .live-dot,
   .user-dot-pulse,
-  .spin svg {
+  .spin svg,
+  .busy svg {
     animation: none;
   }
 }

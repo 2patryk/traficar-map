@@ -7,6 +7,13 @@ export async function fetchZones() {
   return zones
 }
 
+export async function fetchRelocationZoneShape(zoneId) {
+  const res = await fetch(`${API_BASE}/zones/${zoneId}/shapes`)
+  if (!res.ok) throw new Error(`Nie udało się pobrać strefy (${res.status})`)
+  const { shapes } = await res.json()
+  return shapes.find((s) => s.name === 'GLOBAL RELOCATION TARGET ZONE')?.geo ?? null
+}
+
 export async function fetchCars(zoneId, discountTypes = ['Relokacja']) {
   const params = new URLSearchParams({ zoneId, discounts: 'true' })
   for (const type of discountTypes) params.append('discountType', type)
