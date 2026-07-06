@@ -7,9 +7,8 @@ import { googleMapsUrl } from '../utils/geo.js'
 const ZONE_STYLE = {
   color: '#a78bfa',
   weight: 2,
-  dashArray: '6 6',
   fillColor: '#8b5cf6',
-  fillOpacity: 0.06,
+  fillOpacity: 0.18,
 }
 
 function carIcon(amount) {
