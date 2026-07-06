@@ -10,7 +10,8 @@
 .app-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
   padding: 0.85rem 1.25rem;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(10px);
@@ -24,6 +25,7 @@
   flex-direction: column;
   gap: 0.15rem;
   margin-right: auto;
+  min-width: 0;
 }
 
 .brand-name {
@@ -68,6 +70,7 @@
 .header-controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.6rem;
 }
 
@@ -314,6 +317,10 @@
 }
 
 .user-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   width: 16px;
   height: 16px;
   border-radius: 50%;
@@ -324,7 +331,10 @@
 
 .user-dot-pulse {
   position: absolute;
-  inset: -10px;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: rgba(66, 133, 244, 0.35);
   animation: user-pulse 2.4s ease-out infinite;
@@ -332,11 +342,11 @@
 
 @keyframes user-pulse {
   0% {
-    transform: scale(0.4);
+    transform: translate(-50%, -50%) scale(0.6);
     opacity: 0.8;
   }
   100% {
-    transform: scale(1.6);
+    transform: translate(-50%, -50%) scale(2.4);
     opacity: 0;
   }
 }
@@ -371,6 +381,35 @@
 
 .popup a:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    padding: 0.7rem 0.85rem;
+  }
+
+  .brand-name {
+    font-size: 1.15rem;
+  }
+
+  .btn-label {
+    display: none;
+  }
+
+  .icon-button {
+    padding: 0.55rem;
+  }
+
+  .icon-button svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .zone-picker {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 1.8rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

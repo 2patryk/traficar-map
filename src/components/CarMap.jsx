@@ -35,7 +35,7 @@ function Recenter({ center, zoom }) {
   return null
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, zoneId }) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion }) {
   return (
     <MapContainer center={center} zoom={zoom} className="car-map">
       <Recenter center={center} zoom={zoom} />
@@ -43,7 +43,9 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {relocationZone && <GeoJSON key={zoneId} data={relocationZone} style={ZONE_STYLE} />}
+      {relocationZone && (
+        <GeoJSON key={relocationZoneVersion} data={relocationZone} style={ZONE_STYLE} />
+      )}
       {userPosition && (
         <Marker position={[userPosition.lat, userPosition.lng]} icon={userIcon} zIndexOffset={1000} />
       )}

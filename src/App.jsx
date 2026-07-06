@@ -46,7 +46,7 @@ function App() {
 
   const { cars, loading, error, refresh, lastUpdated } = useCars(zoneId, DISCOUNT_TYPES)
   const { position, denied, loading: locating, request: requestLocation } = useGeolocation()
-  const relocationZone = useRelocationZone(zoneId)
+  const { shape: relocationZone, version: relocationZoneVersion } = useRelocationZone(zoneId)
 
   const zone = useMemo(() => zones.find((z) => String(z.id) === String(zoneId)), [zones, zoneId])
   const origin = position ?? zoneCenter(zone)
@@ -95,16 +95,17 @@ function App() {
             title="Użyj mojej lokalizacji"
           >
             <LocationIcon />
-            Moja lokalizacja
+            <span className="btn-label">Moja lokalizacja</span>
           </button>
           <button
             type="button"
             className={`icon-button primary${loading ? ' spin' : ''}`}
             onClick={refresh}
             disabled={!zoneId || loading}
+            title="Odśwież"
           >
             <RefreshIcon />
-            Odśwież
+            <span className="btn-label">Odśwież</span>
           </button>
         </div>
       </header>
@@ -122,7 +123,7 @@ function App() {
             center={center}
             userPosition={position}
             relocationZone={relocationZone}
-            zoneId={zoneId}
+            relocationZoneVersion={relocationZoneVersion}
           />
           <CarList cars={cars} origin={origin} loading={loading} />
         </main>
