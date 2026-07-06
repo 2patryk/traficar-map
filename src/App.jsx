@@ -3,7 +3,7 @@ import { fetchZones } from './api.js'
 import { useCars } from './hooks/useCars.js'
 import { useGeolocation } from './hooks/useGeolocation.js'
 import { useRelocationZone } from './hooks/useRelocationZone.js'
-import { zoneCenter } from './utils/zoneCenters.js'
+import { ZONE_CENTER_OVERRIDES, zoneCenter } from './utils/zoneCenters.js'
 import { ZonePicker } from './components/ZonePicker.jsx'
 import { CarMap } from './components/CarMap.jsx'
 import { CarList } from './components/CarList.jsx'
@@ -50,10 +50,27 @@ function App() {
 
   const zone = useMemo(() => zones.find((z) => String(z.id) === String(zoneId)), [zones, zoneId])
   const origin = position ?? zoneCenter(zone)
+
+  // The map's camera follows the selected zone or an explicit location request —
+  // it must NOT be driven by `origin` directly, since once geolocation succeeds
+  // `origin` stays pinned to the user's position forever, and switching zones
+  // would never move the map again.
+  const [focus, setFocus] = useState(null)
+
+  useEffect(() => {
+    const zc = zoneCenter(zone)
+    if (zc) setFocus(zc)
+  }, [zone])
+
+  useEffect(() => {
+    if (position) setFocus(position)
+  }, [position])
+
+  const defaultCenter = ZONE_CENTER_OVERRIDES[DEFAULT_ZONE_NAME]
   const center = useMemo(
-    () => (origin ? [origin.lat, origin.lng] : [52.2297, 21.0122]),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- key on primitives, not `origin`, so the array reference stays stable across unrelated re-renders
-    [origin?.lat, origin?.lng],
+    () => (focus ? [focus.lat, focus.lng] : [defaultCenter.lat, defaultCenter.lng]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key on primitives, not `focus`, so the array reference stays stable across unrelated re-renders
+    [focus?.lat, focus?.lng],
   )
 
   return (

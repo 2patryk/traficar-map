@@ -282,7 +282,10 @@
 /* Map pins */
 
 .car-pin {
-  position: relative;
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, calc(-100% - 5px));
   display: inline-flex;
   align-items: center;
   justify-content: center;

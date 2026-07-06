@@ -8,7 +8,7 @@ const ZONE_STYLE = {
   color: '#a78bfa',
   weight: 2,
   fillColor: '#8b5cf6',
-  fillOpacity: 0.18,
+  fillOpacity: 0.32,
 }
 
 function carIcon(amount) {
@@ -16,7 +16,7 @@ function carIcon(amount) {
     className: 'car-pin-wrap',
     html: `<span class="car-pin">${amount} zł</span>`,
     iconSize: [0, 0],
-    iconAnchor: [-4, 20],
+    iconAnchor: [0, 0],
   })
 }
 
