@@ -7,6 +7,7 @@ export function useCars(zoneId, discountTypes) {
   const [cars, setCars] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   const load = useCallback(() => {
     if (!zoneId) return
@@ -15,6 +16,7 @@ export function useCars(zoneId, discountTypes) {
       .then((data) => {
         setCars(data)
         setError(null)
+        setLastUpdated(new Date())
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -27,5 +29,5 @@ export function useCars(zoneId, discountTypes) {
     return () => clearInterval(id)
   }, [zoneId, load])
 
-  return { cars, loading, error, refresh: load }
+  return { cars, loading, error, refresh: load, lastUpdated }
 }
