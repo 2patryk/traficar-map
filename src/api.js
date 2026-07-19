@@ -15,8 +15,12 @@ export async function fetchRelocationZoneShape(zoneId) {
 }
 
 export async function fetchCars(zoneId, discountTypes = ['Relokacja']) {
-  const params = new URLSearchParams({ zoneId, discounts: 'true' })
-  for (const type of discountTypes) params.append('discountType', type)
+  // discountTypes = null → bez filtra, API zwraca wszystkie dostępne auta
+  const params = new URLSearchParams({ zoneId })
+  if (discountTypes?.length) {
+    params.set('discounts', 'true')
+    for (const type of discountTypes) params.append('discountType', type)
+  }
 
   const res = await fetch(`${API_BASE}/cars?${params.toString()}`)
   if (!res.ok) throw new Error(`Nie udało się pobrać aut (${res.status})`)

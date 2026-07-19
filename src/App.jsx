@@ -29,10 +29,19 @@ function LocationIcon() {
   )
 }
 
+function CarsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11M5 11h14M5 11a2 2 0 0 0-2 2v4h2m14-6a2 2 0 0 1 2 2v4h-2m-14 0v2m0-2h14m0 0v2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function App() {
   const [zones, setZones] = useState([])
   const [zoneId, setZoneId] = useState('')
   const [zonesError, setZonesError] = useState(null)
+  const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
     fetchZones()
@@ -44,7 +53,13 @@ function App() {
       .catch((err) => setZonesError(err.message))
   }, [])
 
-  const { cars, loading, error, refresh, lastUpdated } = useCars(zoneId, DISCOUNT_TYPES)
+  const { cars, carsShowAll, loading, error, refresh, lastUpdated } = useCars(
+    zoneId,
+    showAll ? null : DISCOUNT_TYPES,
+  )
+  // Renderujemy auta w trybie, w którym je pobrano — po przełączeniu stare
+  // dane zostają na ekranie we właściwej formie, aż dojedzie nowy fetch.
+  const effectiveShowAll = carsShowAll ?? showAll
   const { position, denied, loading: locating, request: requestLocation } = useGeolocation()
   const { shape: relocationZone, version: relocationZoneVersion } = useRelocationZone(zoneId)
 
@@ -90,6 +105,15 @@ function App() {
           <ZonePicker zones={zones} zoneId={zoneId} onChange={setZoneId} />
           <button
             type="button"
+            className={`icon-button${showAll ? ' primary' : ''}`}
+            onClick={() => setShowAll((v) => !v)}
+            title={showAll ? 'Pokaż tylko auta z relokacją' : 'Pokaż wszystkie auta (czas postoju)'}
+          >
+            <CarsIcon />
+            <span className="btn-label">Wszystkie</span>
+          </button>
+          <button
+            type="button"
             className={`icon-button${locating ? ' busy' : ''}`}
             onClick={requestLocation}
             title="Użyj mojej lokalizacji"
@@ -124,8 +148,9 @@ function App() {
             userPosition={position}
             relocationZone={relocationZone}
             relocationZoneVersion={relocationZoneVersion}
+            showAll={effectiveShowAll}
           />
-          <CarList cars={cars} origin={origin} loading={loading} />
+          <CarList cars={cars} origin={origin} loading={loading} showAll={effectiveShowAll} />
         </main>
       )}
     </div>

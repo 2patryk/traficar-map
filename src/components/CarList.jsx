@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { googleMapsUrl, haversineDistanceKm } from '../utils/geo.js'
+import { formatElapsed } from '../utils/time.js'
 
 function GoIcon() {
   return (
@@ -9,7 +10,7 @@ function GoIcon() {
   )
 }
 
-export function CarList({ cars, origin, loading }) {
+export function CarList({ cars, origin, loading, showAll }) {
   const sorted = useMemo(() => {
     if (!origin) return cars
     return [...cars].sort(
@@ -20,11 +21,17 @@ export function CarList({ cars, origin, loading }) {
   }, [cars, origin])
 
   if (loading && sorted.length === 0) {
-    return <p className="loading-state">Szukam aut z rabatem…</p>
+    return <p className="loading-state">{showAll ? 'Szukam aut…' : 'Szukam aut z rabatem…'}</p>
   }
 
   if (sorted.length === 0) {
-    return <p className="empty-state">Brak aut z rabatem Relokacja w tej strefie. Spróbuj innego miasta.</p>
+    return (
+      <p className="empty-state">
+        {showAll
+          ? 'Brak dostępnych aut w tej strefie.'
+          : 'Brak aut z rabatem Relokacja w tej strefie. Spróbuj innego miasta.'}
+      </p>
+    )
   }
 
   return (
@@ -36,7 +43,9 @@ export function CarList({ cars, origin, loading }) {
             className="car-row"
             onClick={() => window.open(googleMapsUrl(car.lat, car.lng), '_blank')}
           >
-            <span className="chip">{car.discountSum} zł</span>
+            <span className={showAll && !car.discountSum ? 'chip time' : 'chip'}>
+              {showAll ? formatElapsed(car.lastUpdate) : `${car.discountSum} zł`}
+            </span>
             <span className="plate">{car.regPlate}</span>
             <span className="location">{car.location}</span>
             {origin && (

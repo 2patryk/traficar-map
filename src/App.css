@@ -239,6 +239,11 @@
   white-space: nowrap;
 }
 
+.chip.time {
+  color: var(--text-dim, #9ca3af);
+  background: rgba(148, 163, 184, 0.14);
+}
+
 .plate {
   font-family: var(--font-mono);
   font-weight: 600;
@@ -302,6 +307,14 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(255, 255, 255, 0.12) inset;
   white-space: nowrap;
   border: none;
+}
+
+.car-pin.time {
+  background: #475569;
+}
+
+.car-pin.time::after {
+  background: #475569;
 }
 
 .car-pin::after {

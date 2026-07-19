@@ -4,7 +4,9 @@ import { fetchCars } from '../api.js'
 const REFRESH_INTERVAL_MS = 60_000
 
 export function useCars(zoneId, discountTypes) {
-  const [cars, setCars] = useState([])
+  // `carsFor` pamięta, dla jakich parametrów pobrano dane — przy przełączeniu
+  // filtra stare auta renderujemy dalej w ICH trybie, aż przyjdą świeże.
+  const [result, setResult] = useState({ cars: [], carsFor: undefined })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -14,7 +16,7 @@ export function useCars(zoneId, discountTypes) {
     setLoading(true)
     fetchCars(zoneId, discountTypes)
       .then((data) => {
-        setCars(data)
+        setResult({ cars: data, carsFor: discountTypes })
         setError(null)
         setLastUpdated(new Date())
       })
@@ -29,5 +31,8 @@ export function useCars(zoneId, discountTypes) {
     return () => clearInterval(id)
   }, [zoneId, load])
 
-  return { cars, loading, error, refresh: load, lastUpdated }
+  // Tryb, w jakim faktycznie pobrano widoczne dane (undefined = jeszcze nic)
+  const carsShowAll = result.carsFor === undefined ? undefined : result.carsFor === null
+
+  return { cars: result.cars, carsShowAll, loading, error, refresh: load, lastUpdated }
 }

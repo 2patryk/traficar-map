@@ -3,6 +3,7 @@ import { GeoJSON, MapContainer, Marker, Popup, TileLayer, useMap } from 'react-l
 import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { googleMapsUrl } from '../utils/geo.js'
+import { formatElapsed } from '../utils/time.js'
 
 const ZONE_STYLE = {
   color: '#a78bfa',
@@ -11,10 +12,12 @@ const ZONE_STYLE = {
   fillOpacity: 0.32,
 }
 
-function carIcon(amount) {
+function carIcon(car, showAll) {
+  const label = showAll ? formatElapsed(car.lastUpdate) : `${car.discountSum} zł`
+  const cls = showAll && !car.discountSum ? 'car-pin time' : 'car-pin'
   return divIcon({
     className: 'car-pin-wrap',
-    html: `<span class="car-pin">${amount} zł</span>`,
+    html: `<span class="${cls}">${label}</span>`,
     iconSize: [0, 0],
     iconAnchor: [0, 0],
   })
@@ -35,7 +38,7 @@ function Recenter({ center, zoom }) {
   return null
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion }) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll }) {
   return (
     <MapContainer center={center} zoom={zoom} className="car-map">
       <Recenter center={center} zoom={zoom} />
@@ -50,7 +53,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
         <Marker position={[userPosition.lat, userPosition.lng]} icon={userIcon} zIndexOffset={1000} />
       )}
       {cars.map((car) => (
-        <Marker key={car.id} position={[car.lat, car.lng]} icon={carIcon(car.discountSum)}>
+        <Marker key={car.id} position={[car.lat, car.lng]} icon={carIcon(car, showAll)}>
           <Popup>
             <div className="popup">
               <strong>{car.regPlate}</strong>
@@ -59,7 +62,13 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
               <br />
               Paliwo: {car.fuel}% · Zasięg: {car.range} km
               <br />
-              Rabat: {car.discountSum} zł
+              {car.discountSum > 0 && (
+                <>
+                  Rabat: {car.discountSum} zł
+                  <br />
+                </>
+              )}
+              Bez zmian od: {formatElapsed(car.lastUpdate)}
               <br />
               <a href={googleMapsUrl(car.lat, car.lng)} target="_blank" rel="noreferrer">
                 Otwórz w Google Maps
