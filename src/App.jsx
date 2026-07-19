@@ -108,15 +108,12 @@ function App() {
   )
 
   useEffect(() => {
-    if (!selectedCar) {
-      setSelectedRoute(null)
-      return
-    }
+    // Zawsze czyścimy od razu — stara trasa nie może wisieć, gdy trwa fetch
+    // nowej, bo mapa dopasuje się do trasy poprzedniego auta
+    setSelectedRoute(null)
+    if (!selectedCar) return
     const prox = zoneDistances?.get(selectedCar.id)
-    if (!prox?.point) {
-      setSelectedRoute(null)
-      return
-    }
+    if (!prox?.point) return
     let cancelled = false
     fetchRouteGeometry({ lat: selectedCar.lat, lng: selectedCar.lng }, prox.point)
       .then((coords) => {
@@ -128,8 +125,10 @@ function App() {
     }
   }, [selectedCar, zoneDistances])
 
-  const selectCar = (car) => {
-    setSelectedCarId((id) => (id === car.id ? null : car.id))
+  // Lista: ponowny klik odznacza. Pinezka: zawsze zaznacza — toggle zamykałby
+  // popup, który Leaflet właśnie otworzył tym samym kliknięciem.
+  const selectCar = (car, { toggle = true } = {}) => {
+    setSelectedCarId((id) => (toggle && id === car.id ? null : car.id))
   }
 
   const zone = useMemo(() => zones.find((z) => String(z.id) === String(zoneId)), [zones, zoneId])
@@ -223,7 +222,7 @@ function App() {
             drivingRoutes={drivingRoutes}
             selectedCar={selectedCar}
             selectedRoute={selectedRoute}
-            onSelect={selectCar}
+            onSelect={(car) => selectCar(car, { toggle: false })}
           />
           <CarList
             cars={cars}

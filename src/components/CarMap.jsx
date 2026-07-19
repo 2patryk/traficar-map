@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { GeoJSON, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -37,18 +37,33 @@ const ROUTE_STYLE = {
   dashArray: '8 6',
 }
 
-// Po wyborze auta dopasuj widok: do trasy gdy jest, inaczej do samego auta
-function FitSelection({ route, car }) {
+// Po wyborze auta dopasuj widok: do trasy gdy jest (lub nadejdzie za moment),
+// inaczej do samego auta. `expectRoute` zapobiega dwustopniowemu zoomowi:
+// nie robimy flyTo do auta, skoro zaraz i tak przyjdzie fitBounds trasy.
+function FitSelection({ route, car, expectRoute }) {
   const map = useMap()
   useEffect(() => {
-    if (route?.coords?.length) {
+    if (route?.coords?.length && route.carId === car?.id) {
       map.fitBounds(route.coords, { padding: [50, 50] })
-    } else if (car) {
+    } else if (car && !expectRoute) {
       map.flyTo([car.lat, car.lng], 15, { duration: 0.5 })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- klucz na id, nie referencjach:
     // feed odświeża się co 60 s i tworzy nowe obiekty, a mapa nie może wtedy skakać
-  }, [route?.carId, car?.id, map])
+  }, [route?.carId, car?.id, expectRoute, map])
+  return null
+}
+
+// Popup podąża za zaznaczeniem: wybór z listy otwiera popup właściwego
+// markera, odznaczenie zamyka. Bez tego popup klikniętej wcześniej pinezki
+// wisiał ze starymi danymi po wybraniu innego auta z listy.
+function PopupSync({ selectedCarId, markerRefs }) {
+  const map = useMap()
+  useEffect(() => {
+    const marker = selectedCarId != null ? markerRefs.current.get(selectedCarId) : null
+    if (marker) marker.openPopup()
+    else map.closePopup()
+  }, [selectedCarId, markerRefs, map])
   return null
 }
 
@@ -61,6 +76,8 @@ function Recenter({ center, zoom }) {
 }
 
 export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, selectedCar, selectedRoute, onSelect }) {
+  const markerRefs = useRef(new Map())
+
   const zoneLabel = (car) => {
     const prox = zoneDistances?.get(car.id)
     if (!prox) return null
@@ -72,8 +89,17 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
   return (
     <MapContainer center={center} zoom={zoom} className="car-map">
       <Recenter center={center} zoom={zoom} />
-      {selectedCar && <FitSelection route={selectedRoute} car={selectedCar} />}
-      {selectedRoute && <Polyline positions={selectedRoute.coords} pathOptions={ROUTE_STYLE} />}
+      <PopupSync selectedCarId={selectedCar?.id ?? null} markerRefs={markerRefs} />
+      {selectedCar && (
+        <FitSelection
+          route={selectedRoute}
+          car={selectedCar}
+          expectRoute={Boolean(zoneDistances?.get(selectedCar.id)?.point)}
+        />
+      )}
+      {selectedRoute && selectedRoute.carId === selectedCar?.id && (
+        <Polyline positions={selectedRoute.coords} pathOptions={ROUTE_STYLE} />
+      )}
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -89,6 +115,10 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
           key={car.id}
           position={[car.lat, car.lng]}
           icon={carIcon(car, showAll)}
+          ref={(el) => {
+            if (el) markerRefs.current.set(car.id, el)
+            else markerRefs.current.delete(car.id)
+          }}
           eventHandlers={{ click: () => onSelect?.(car) }}
         >
           <Popup>
