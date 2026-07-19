@@ -113,7 +113,15 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
                   <br />
                 </>
               )}
-              <a href={googleMapsUrl(car.lat, car.lng)} target="_blank" rel="noreferrer">
+              <a
+                className="nav-button"
+                href={googleMapsUrl(car.lat, car.lng)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2L19 21l-7-4-7 4L12 2z" strokeLinejoin="round" />
+                </svg>
                 Otwórz w Google Maps
               </a>
             </div>

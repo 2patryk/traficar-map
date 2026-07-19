@@ -16,7 +16,6 @@ function toRad(deg) {
 export function googleMapsUrl(lat, lng) {
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
 }
-
 // Bliskość punktu do strefy (GeoJSON Polygon/MultiPolygon, coords [lng, lat]).
 // Wewnątrz → { km: 0 }. Na zewnątrz (także w "dziurze") → { km, point } gdzie
 // `point` to najbliższy punkt na granicy. Brak/nieznany kształt → null.

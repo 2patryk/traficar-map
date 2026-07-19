@@ -435,6 +435,30 @@
   text-decoration: underline;
 }
 
+.popup .nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.popup .nav-button:hover {
+  background: var(--accent-2);
+  text-decoration: none;
+}
+
+.popup .nav-button svg {
+  width: 15px;
+  height: 15px;
+}
 @media (max-width: 640px) {
   .app-header {
     padding: 0.7rem 0.85rem;
