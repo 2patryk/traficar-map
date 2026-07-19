@@ -14,6 +14,20 @@ export async function fetchRelocationZoneShape(zoneId) {
   return shapes.find((s) => s.name === 'GLOBAL RELOCATION TARGET ZONE')?.geo ?? null
 }
 
+// modelId -> { name, type }; type: 1 = osobowe, 2 = dostawcze, 6 = skutery.
+// Pobierane raz na życie aplikacji.
+let modelsPromise = null
+export function fetchCarModels() {
+  modelsPromise ??= fetch(`${API_BASE}/car-models`)
+    .then((res) => (res.ok ? res.json() : { carModels: [] }))
+    .then(({ carModels }) => new Map(carModels.map((m) => [m.id, { name: m.name, type: m.type }])))
+    .catch(() => {
+      modelsPromise = null
+      return new Map()
+    })
+  return modelsPromise
+}
+
 export async function fetchCars(zoneId, discountTypes = ['Relokacja']) {
   // discountTypes = null → bez filtra, API zwraca wszystkie dostępne auta
   const params = new URLSearchParams({ zoneId })
@@ -22,11 +36,21 @@ export async function fetchCars(zoneId, discountTypes = ['Relokacja']) {
     for (const type of discountTypes) params.append('discountType', type)
   }
 
-  const res = await fetch(`${API_BASE}/cars?${params.toString()}`)
+  const [res, models] = await Promise.all([
+    fetch(`${API_BASE}/cars?${params.toString()}`),
+    fetchCarModels(),
+  ])
   if (!res.ok) throw new Error(`Nie udało się pobrać aut (${res.status})`)
   const { cars } = await res.json()
 
-  return cars.map((car) => ({
+  // Tylko osobowe (type 1) — bez dostawczych i skuterów. Nieznany model
+  // zostaje, żeby nowy typ w API nie znikał po cichu z mapy.
+  const isPassenger = (car) => {
+    const type = models.get(car.modelId)?.type
+    return type == null || type === 1
+  }
+
+  return cars.filter(isPassenger).map((car) => ({
     ...car,
     lat: parseFloat(car.lat),
     lng: parseFloat(car.lng),

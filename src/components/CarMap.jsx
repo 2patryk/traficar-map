@@ -4,6 +4,7 @@ import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { formatDrive, formatZoneDistance, googleMapsUrl } from '../utils/geo.js'
 import { formatElapsed } from '../utils/time.js'
+import { formatPayout } from '../utils/payout.js'
 
 const ZONE_STYLE = {
   color: '#a78bfa',
@@ -54,16 +55,15 @@ function FitSelection({ route, car, expectRoute }) {
   return null
 }
 
-// Popup podąża za zaznaczeniem: wybór z listy otwiera popup właściwego
-// markera, odznaczenie zamyka. Bez tego popup klikniętej wcześniej pinezki
-// wisiał ze starymi danymi po wybraniu innego auta z listy.
+// Zamyka popupy nieaktualnych markerów przy zmianie zaznaczenia. Popup otwiera
+// wyłącznie klik w pinezkę (natywnie Leaflet) — wybór z listy tylko zaznacza;
+// popup klikniętej wcześniej pinezki nie może wisieć ze starymi danymi.
 function PopupSync({ selectedCarId, markerRefs }) {
-  const map = useMap()
   useEffect(() => {
-    const marker = selectedCarId != null ? markerRefs.current.get(selectedCarId) : null
-    if (marker) marker.openPopup()
-    else map.closePopup()
-  }, [selectedCarId, markerRefs, map])
+    for (const [id, marker] of markerRefs.current) {
+      if (id !== selectedCarId && marker.isPopupOpen()) marker.closePopup()
+    }
+  }, [selectedCarId, markerRefs])
   return null
 }
 
@@ -75,7 +75,7 @@ function Recenter({ center, zoom }) {
   return null
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, selectedCar, selectedRoute, debugCandidates, bestEntry, onSelect }) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, debugCandidates, bestEntry, onSelect }) {
   const markerRefs = useRef(new Map())
 
   const zoneLabel = (car) => {
@@ -156,6 +156,12 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
               {zoneLabel(car) && (
                 <>
                   Strefa: {zoneLabel(car)}
+                  <br />
+                </>
+              )}
+              {payouts?.has(car.id) && (
+                <>
+                  Szac. zwrot: <strong>{formatPayout(payouts.get(car.id))}</strong>
                   <br />
                 </>
               )}

@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { formatDrive, formatZoneDistance, googleMapsUrl, haversineDistanceKm } from '../utils/geo.js'
 import { formatElapsed } from '../utils/time.js'
+import { formatPayout } from '../utils/payout.js'
 
 function GoIcon() {
   return (
@@ -10,15 +11,36 @@ function GoIcon() {
   )
 }
 
-export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, onSelect, selectedCarId }) {
+const SORTS = [
+  { id: 'distance', label: 'Najbliżej mnie' },
+  { id: 'discount', label: 'Kwota rabatów' },
+  { id: 'payout', label: 'Szac. zwrot' },
+  { id: 'zone', label: 'Blisko strefy' },
+]
+
+export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, selectedCarId }) {
+  const [sortBy, setSortBy] = useState('distance')
+
   const sorted = useMemo(() => {
-    if (!origin) return cars
-    return [...cars].sort(
-      (a, b) =>
-        haversineDistanceKm(origin.lat, origin.lng, a.lat, a.lng) -
-        haversineDistanceKm(origin.lat, origin.lng, b.lat, b.lng),
-    )
-  }, [cars, origin])
+    const distTo = (car) =>
+      origin ? haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng) : 0
+    // Auta bez wartości sortowanej lądują na końcu
+    const zoneKm = (car) => {
+      const prox = zoneDistances?.get(car.id)
+      if (!prox) return Infinity
+      return drivingRoutes?.get(car.id)?.km ?? prox.km
+    }
+    const payout = (car) => (payouts?.has(car.id) ? payouts.get(car.id) : -Infinity)
+
+    const cmp = {
+      distance: (a, b) => distTo(a) - distTo(b),
+      discount: (a, b) => b.discountSum - a.discountSum || distTo(a) - distTo(b),
+      payout: (a, b) => payout(b) - payout(a) || distTo(a) - distTo(b),
+      zone: (a, b) => zoneKm(a) - zoneKm(b) || distTo(a) - distTo(b),
+    }[sortBy]
+
+    return [...cars].sort(cmp)
+  }, [cars, origin, sortBy, zoneDistances, drivingRoutes, payouts])
 
   if (loading && sorted.length === 0) {
     return <p className="loading-state">{showAll ? 'Szukam aut…' : 'Szukam aut z rabatem…'}</p>
@@ -44,7 +66,22 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
   }
 
   return (
-    <ul className="car-list">
+    <div className="list-pane">
+      <div className="list-toolbar" role="tablist" aria-label="Sortowanie">
+        {SORTS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            role="tab"
+            aria-selected={sortBy === s.id}
+            className={`sort-chip${sortBy === s.id ? ' active' : ''}`}
+            onClick={() => setSortBy(s.id)}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <ul className="car-list">
       {sorted.map((car) => (
         <li key={car.id}>
           <button
@@ -77,11 +114,17 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
             </div>
             <div className="row-line">
               <span className="location">{car.location}</span>
+              {payouts?.has(car.id) && (
+                <span className={`payout${payouts.get(car.id) > 0 ? '' : ' negative'}`}>
+                  {formatPayout(payouts.get(car.id))}
+                </span>
+              )}
               {zoneLabel(car) && <span className="zone-route">{zoneLabel(car)}</span>}
             </div>
           </button>
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   )
 }

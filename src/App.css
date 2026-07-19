@@ -1,7 +1,10 @@
 .app {
   display: flex;
   flex-direction: column;
+  /* dvh = realna wysokość viewportu na mobile (pasek adresu chowa się i wraca);
+     100vh zostaje jako fallback dla starych przeglądarek */
   height: 100vh;
+  height: 100dvh;
   background: var(--bg);
 }
 
@@ -191,14 +194,64 @@
 
 /* List */
 
-.car-list {
+.list-pane {
   flex: 1 1 45%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  padding: 0.5rem 0 0;
+}
+
+/* Mobile first: pasek chipów przewijany poziomo, bez widocznego scrollbara */
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.6rem 0.55rem;
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.list-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.sort-chip {
+  flex-shrink: 0;
+  padding: 0.42rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.sort-chip:hover {
+  border-color: var(--accent-2);
+  color: var(--text);
+}
+
+.sort-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+
+.car-list {
+  flex: 1;
   overflow-y: auto;
   list-style: none;
   margin: 0;
-  padding: 0.5rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg);
+  padding: 0 0.5rem 0.5rem;
 }
 
 .car-list li + li {
@@ -297,6 +350,19 @@
   font-size: 0.78rem;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.payout {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: #22c55e;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.payout.negative {
+  color: #ef4444;
 }
 
 .distance {
@@ -506,7 +572,7 @@
     flex: 1 1 68%;
   }
 
-  .car-list {
+  .list-pane {
     flex: 1 1 32%;
     border-top: none;
     border-left: 1px solid var(--border);

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchZones } from './api.js'
+import { fetchCarModels, fetchZones } from './api.js'
+import { relocationPayout } from './utils/payout.js'
 import { useCars } from './hooks/useCars.js'
 import { useGeolocation } from './hooks/useGeolocation.js'
 import { useRelocationZone } from './hooks/useRelocationZone.js'
@@ -96,6 +97,25 @@ function App() {
     return targets
   }, [cars, zoneDistances, relocationZone])
   const drivingRoutes = useDrivingRoutes(routeTargets, relocationZone)
+
+  const [models, setModels] = useState(null)
+  useEffect(() => {
+    fetchCarModels().then(setModels)
+  }, [])
+
+  // Szacowany zwrot za przestawienie: 30 zł premii minus koszt przejazdu
+  // wg dystansu OSRM (auta w strefie i bez trasy — brak wartości)
+  const payouts = useMemo(() => {
+    if (!models) return null
+    const byId = new Map()
+    for (const car of cars) {
+      if (!zoneDistances?.get(car.id)?.point) continue
+      const route = drivingRoutes?.get(car.id)
+      if (!route) continue
+      byId.set(car.id, relocationPayout(models.get(car.modelId)?.name, route.km))
+    }
+    return byId
+  }, [cars, models, zoneDistances, drivingRoutes])
 
   // Kliknięte auto: rysujemy jego trasę do strefy na mapie
   const [selectedCarId, setSelectedCarId] = useState(null)
@@ -236,6 +256,7 @@ function App() {
             showAll={effectiveShowAll}
             zoneDistances={zoneDistances}
             drivingRoutes={drivingRoutes}
+            payouts={payouts}
             selectedCar={selectedCar}
             selectedRoute={selectedRoute}
             debugCandidates={debugCandidates}
@@ -249,6 +270,7 @@ function App() {
             showAll={effectiveShowAll}
             zoneDistances={zoneDistances}
             drivingRoutes={drivingRoutes}
+            payouts={payouts}
             onSelect={selectCar}
             selectedCarId={selectedCarId}
           />
