@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { isInsideZone, zoneProximity } from '../utils/geo.js'
 
 const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving'
+const OSRM_TABLE = 'https://router.project-osrm.org/table/v1/driving'
 
 // Cache na czas życia aplikacji — pozycja auta się nie zmienia, więc nie ma
 // sensu pytać OSRM ponownie przy każdym 60-sekundowym odświeżeniu feedu.
@@ -21,10 +23,44 @@ export async function fetchRouteGeometry(from, to) {
   return coords
 }
 
-// targets: [{ id, from: {lat,lng}, to: {lat,lng} }]
-// Zwraca Map id -> { km, min }. Zapytania sekwencyjne — publiczny serwer
+// Jedno zapytanie OSRM table: czasy/dystanse z auta do wszystkich kandydatów
+// naraz. Preferuje kandydatów, których pozycja PO snapie do drogi nadal leży
+// w strefie (snap potrafi uciec za granicę); fallback: najszybszy ogólnie.
+// Zwraca najszybszy wjazd: { km, min, to } albo null.
+async function fetchBestEntry(from, candidates, zoneGeo) {
+  const coords = [from, ...candidates].map((p) => `${p.lng},${p.lat}`).join(';')
+  const res = await fetch(`${OSRM_TABLE}/${coords}?sources=0&annotations=duration,distance`)
+  if (!res.ok) return null
+  const data = await res.json()
+  const durations = data.durations?.[0]
+  const distances = data.distances?.[0]
+  if (!durations || !distances) return null
+
+  let bestInside = null
+  let bestAny = null
+  // Indeks 0 to samo auto (source) — pomijamy
+  for (let i = 1; i < durations.length; i++) {
+    if (durations[i] == null || distances[i] == null) continue
+    const entry = { duration: durations[i], distance: distances[i], to: candidates[i - 1] }
+    if (!bestAny || entry.duration < bestAny.duration) bestAny = entry
+    // Tolerancja 150 m: snap kandydata granicznego ląduje na drodze biegnącej
+    // po granicy — geometrycznie o włos "poza" strefą, praktycznie wjazd OK
+    const snapped = data.destinations?.[i]?.location
+    const snappedOk =
+      snapped && zoneGeo
+        ? isInsideZone(snapped[1], snapped[0], zoneGeo) ||
+          (zoneProximity(snapped[1], snapped[0], zoneGeo)?.km ?? Infinity) < 0.15
+        : false
+    if (snappedOk && (!bestInside || entry.duration < bestInside.duration)) bestInside = entry
+  }
+  const best = bestInside ?? bestAny
+  return best ? { km: best.distance / 1000, min: best.duration / 60, to: best.to } : null
+}
+
+// targets: [{ id, from: {lat,lng}, candidates: [{lat,lng}, ...] }]
+// Zwraca Map id -> { km, min, to }. Zapytania sekwencyjne — publiczny serwer
 // demo OSRM, nie zalewamy go równoległymi requestami.
-export function useDrivingRoutes(targets) {
+export function useDrivingRoutes(targets, zoneGeo) {
   const [routes, setRoutes] = useState(() => new Map())
 
   useEffect(() => {
@@ -38,13 +74,8 @@ export function useDrivingRoutes(targets) {
         const key = `${t.id}:${t.from.lat.toFixed(5)},${t.from.lng.toFixed(5)}`
         if (!cache.has(key)) {
           try {
-            const url = `${OSRM_BASE}/${t.from.lng},${t.from.lat};${t.to.lng},${t.to.lat}?overview=false`
-            const res = await fetch(url)
-            if (res.ok) {
-              const data = await res.json()
-              const route = data.routes?.[0]
-              if (route) cache.set(key, { km: route.distance / 1000, min: route.duration / 60 })
-            }
+            const best = await fetchBestEntry(t.from, t.candidates, zoneGeo)
+            if (best) cache.set(key, best)
           } catch {
             // sieć/limit — pominięte auto pokaże dystans w linii prostej
           }
@@ -61,7 +92,7 @@ export function useDrivingRoutes(targets) {
     return () => {
       cancelled = true
     }
-  }, [targets])
+  }, [targets, zoneGeo])
 
   return routes
 }

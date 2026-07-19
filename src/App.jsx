@@ -4,7 +4,7 @@ import { useCars } from './hooks/useCars.js'
 import { useGeolocation } from './hooks/useGeolocation.js'
 import { useRelocationZone } from './hooks/useRelocationZone.js'
 import { ZONE_CENTER_OVERRIDES, zoneCenter } from './utils/zoneCenters.js'
-import { zoneProximity } from './utils/geo.js'
+import { zoneEntryCandidates, zoneProximity } from './utils/geo.js'
 import { fetchRouteGeometry, useDrivingRoutes } from './hooks/useDrivingRoutes.js'
 import { ZonePicker } from './components/ZonePicker.jsx'
 import { CarMap } from './components/CarMap.jsx'
@@ -79,19 +79,23 @@ function App() {
     return byId
   }, [cars, relocationZone])
 
-  // Trasa autem (OSRM) od auta do najbliższego punktu granicy strefy
+  // Trasa autem (OSRM) do najszybszego punktu wjazdu do strefy — kandydaci
+  // z granicy, wybór przez OSRM table w hooku
   const routeTargets = useMemo(() => {
-    if (!zoneDistances) return []
+    if (!zoneDistances || !relocationZone) return []
     const targets = []
     for (const car of cars) {
       const prox = zoneDistances.get(car.id)
       if (prox?.point) {
-        targets.push({ id: car.id, from: { lat: car.lat, lng: car.lng }, to: prox.point })
+        const candidates = zoneEntryCandidates(car.lat, car.lng, relocationZone)
+        if (candidates?.length) {
+          targets.push({ id: car.id, from: { lat: car.lat, lng: car.lng }, candidates })
+        }
       }
     }
     return targets
-  }, [cars, zoneDistances])
-  const drivingRoutes = useDrivingRoutes(routeTargets)
+  }, [cars, zoneDistances, relocationZone])
+  const drivingRoutes = useDrivingRoutes(routeTargets, relocationZone)
 
   // Kliknięte auto: rysujemy jego trasę do strefy na mapie
   const [selectedCarId, setSelectedCarId] = useState(null)
@@ -114,8 +118,11 @@ function App() {
     if (!selectedCar) return
     const prox = zoneDistances?.get(selectedCar.id)
     if (!prox?.point) return
+    // Geometria do najszybszego wjazdu z OSRM table; zanim table odpowie,
+    // fallback na najbliższy punkt geometrycznie
+    const dest = drivingRoutes?.get(selectedCar.id)?.to ?? prox.point
     let cancelled = false
-    fetchRouteGeometry({ lat: selectedCar.lat, lng: selectedCar.lng }, prox.point)
+    fetchRouteGeometry({ lat: selectedCar.lat, lng: selectedCar.lng }, dest)
       .then((coords) => {
         if (!cancelled && coords) setSelectedRoute({ carId: selectedCar.id, coords })
       })
@@ -123,10 +130,19 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [selectedCar, zoneDistances])
+  }, [selectedCar, zoneDistances, drivingRoutes])
 
   // Lista: ponowny klik odznacza. Pinezka: zawsze zaznacza — toggle zamykałby
   // popup, który Leaflet właśnie otworzył tym samym kliknięciem.
+  // Debug: kandydaci próbkowani dla zaznaczonego auta + zwycięski wjazd
+  const debugCandidates = useMemo(() => {
+    if (!selectedCar || !relocationZone) return null
+    const prox = zoneDistances?.get(selectedCar.id)
+    if (!prox?.point) return null
+    return zoneEntryCandidates(selectedCar.lat, selectedCar.lng, relocationZone)
+  }, [selectedCar, zoneDistances, relocationZone])
+  const bestEntry = drivingRoutes?.get(selectedCar?.id)?.to ?? null
+
   const selectCar = (car, { toggle = true } = {}) => {
     setSelectedCarId((id) => (toggle && id === car.id ? null : car.id))
   }
@@ -222,6 +238,8 @@ function App() {
             drivingRoutes={drivingRoutes}
             selectedCar={selectedCar}
             selectedRoute={selectedRoute}
+            debugCandidates={debugCandidates}
+            bestEntry={bestEntry}
             onSelect={(car) => selectCar(car, { toggle: false })}
           />
           <CarList

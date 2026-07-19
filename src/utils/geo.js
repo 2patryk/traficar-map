@@ -20,16 +20,10 @@ export function googleMapsUrl(lat, lng) {
 // Wewnątrz → { km: 0 }. Na zewnątrz (także w "dziurze") → { km, point } gdzie
 // `point` to najbliższy punkt na granicy. Brak/nieznany kształt → null.
 export function zoneProximity(lat, lng, geo) {
-  if (!geo) return null
-  const polygons =
-    geo.type === 'MultiPolygon' ? geo.coordinates : geo.type === 'Polygon' ? [geo.coordinates] : []
+  const polygons = toPolygons(geo)
   if (polygons.length === 0) return null
 
-  for (const rings of polygons) {
-    if (pointInRing(lat, lng, rings[0]) && !rings.slice(1).some((hole) => pointInRing(lat, lng, hole))) {
-      return { km: 0 }
-    }
-  }
+  if (insidePolygons(lat, lng, polygons)) return { km: 0 }
 
   // Rzut lokalny (equirectangular) — wystarczający przy dystansach miejskich
   const cosLat = Math.cos(toRad(lat))
@@ -49,6 +43,97 @@ export function zoneProximity(lat, lng, geo) {
     }
   }
   return { km: min, point }
+}
+
+function toPolygons(geo) {
+  if (!geo) return []
+  return geo.type === 'MultiPolygon' ? geo.coordinates : geo.type === 'Polygon' ? [geo.coordinates] : []
+}
+
+function insidePolygons(lat, lng, polygons) {
+  return polygons.some(
+    (rings) =>
+      pointInRing(lat, lng, rings[0]) && !rings.slice(1).some((hole) => pointInRing(lat, lng, hole)),
+  )
+}
+
+// Czy punkt leży w strefie — do walidacji pozycji po snapie OSRM
+export function isInsideZone(lat, lng, geo) {
+  return insidePolygons(lat, lng, toPolygons(geo))
+}
+
+// Kandydaci na punkt wjazdu do strefy: środki krawędzi granicy w promieniu
+// ~2.5× dystansu w prostej, wsunięte ~250 m W GŁĄB strefy (wzdłuż normalnej
+// krawędzi; kierunek weryfikowany testem wnętrza, wklęsłości odpadają).
+// Wsunięcie gwarantuje, że OSRM przyklei cel do drogi wewnątrz strefy, nie po
+// złej stronie granicy. Do tego kilka punktów NA samej granicy (z najbliższym
+// na czele) — łapią przypadki, gdzie droga wjazdowa biegnie wzdłuż granicy
+// i wsunięci kandydaci ją omijają. OSRM table wybierze najszybszy dojazdem.
+export function zoneEntryCandidates(lat, lng, geo, maxCount = 15, insetKm = 0.25, boundaryCount = 5) {
+  const prox = zoneProximity(lat, lng, geo)
+  if (!prox?.point) return null
+
+  const polygons = toPolygons(geo)
+  const radiusKm = Math.max(prox.km * 2.5, prox.km + 2)
+  const cosLat = Math.cos(toRad(lat))
+  const degPerKmLat = 180 / (Math.PI * EARTH_RADIUS_KM)
+  const degPerKmLng = degPerKmLat / cosLat
+
+  const candidates = []
+  const boundary = []
+  for (const rings of polygons) {
+    for (const ring of rings) {
+      for (let i = 0; i < ring.length - 1; i++) {
+        const [lngA, latA] = ring[i]
+        const [lngB, latB] = ring[i + 1]
+        const mid = { lat: (latA + latB) / 2, lng: (lngA + lngB) / 2 }
+        const d = haversineDistanceKm(lat, lng, mid.lat, mid.lng)
+        if (d > radiusKm) continue
+        boundary.push({ ...mid, d })
+
+        // Jednostkowa normalna krawędzi w lokalnym rzucie
+        const ex = (lngB - lngA) * cosLat
+        const ey = latB - latA
+        const len = Math.hypot(ex, ey)
+        if (len === 0) continue
+        const nx = -ey / len
+        const ny = ex / len
+
+        for (const sign of [1, -1]) {
+          const cand = {
+            lat: mid.lat + ny * sign * insetKm * degPerKmLat,
+            lng: mid.lng + nx * sign * insetKm * degPerKmLng,
+            d,
+          }
+          if (insidePolygons(cand.lat, cand.lng, polygons)) {
+            candidates.push(cand)
+            break
+          }
+        }
+      }
+    }
+  }
+  candidates.sort((a, b) => a.d - b.d)
+  boundary.sort((a, b) => a.d - b.d)
+
+  const minSepKm = Math.max(0.3, radiusKm / maxCount)
+  const picked = []
+  const pickSpaced = (source, limit) => {
+    for (const c of source) {
+      if (limit <= 0) break
+      if (picked.every((p) => haversineDistanceKm(p.lat, p.lng, c.lat, c.lng) >= minSepKm)) {
+        picked.push({ lat: c.lat, lng: c.lng })
+        limit--
+      }
+    }
+  }
+
+  // Punkty na granicy najpierw (najbliższy zawsze wchodzi), potem wsunięci
+  picked.push(prox.point)
+  pickSpaced(boundary, boundaryCount - 1)
+  pickSpaced(candidates, maxCount)
+
+  return picked
 }
 
 function pointInRing(lat, lng, ring) {
