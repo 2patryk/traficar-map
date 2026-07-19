@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { googleMapsUrl, haversineDistanceKm } from '../utils/geo.js'
+import { formatDrive, formatZoneDistance, googleMapsUrl, haversineDistanceKm } from '../utils/geo.js'
 import { formatElapsed } from '../utils/time.js'
 
 function GoIcon() {
@@ -10,7 +10,7 @@ function GoIcon() {
   )
 }
 
-export function CarList({ cars, origin, loading, showAll }) {
+export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, onSelect, selectedCarId }) {
   const sorted = useMemo(() => {
     if (!origin) return cars
     return [...cars].sort(
@@ -34,26 +34,51 @@ export function CarList({ cars, origin, loading, showAll }) {
     )
   }
 
+  // Trasa autem gdy już policzona, wcześniej dystans w linii prostej
+  const zoneLabel = (car) => {
+    const prox = zoneDistances?.get(car.id)
+    if (!prox) return null
+    if (prox.km === 0) return 'w strefie'
+    const route = drivingRoutes?.get(car.id)
+    return route ? `${formatDrive(route)} do strefy` : formatZoneDistance(prox.km)
+  }
+
   return (
     <ul className="car-list">
       {sorted.map((car) => (
         <li key={car.id}>
           <button
             type="button"
-            className="car-row"
-            onClick={() => window.open(googleMapsUrl(car.lat, car.lng), '_blank')}
+            className={`car-row${car.id === selectedCarId ? ' selected' : ''}`}
+            onClick={() => onSelect?.(car)}
           >
-            <span className={showAll && !car.discountSum ? 'chip time' : 'chip'}>
-              {showAll ? formatElapsed(car.lastUpdate) : `${car.discountSum} zł`}
-            </span>
-            <span className="plate">{car.regPlate}</span>
-            <span className="location">{car.location}</span>
-            {origin && (
-              <span className="distance">
-                {haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng).toFixed(1)} km
+            <div className="row-line">
+              <span className={showAll && !car.discountSum ? 'chip time' : 'chip'}>
+                {showAll ? formatElapsed(car.lastUpdate) : `${car.discountSum} zł`}
               </span>
-            )}
-            <GoIcon />
+              <span className="plate">{car.regPlate}</span>
+              {origin && (
+                <span className="distance">
+                  {haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng).toFixed(1)} km
+                </span>
+              )}
+              <span
+                className="maps-link"
+                role="link"
+                tabIndex={0}
+                title="Otwórz w Google Maps"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  window.open(googleMapsUrl(car.lat, car.lng), '_blank')
+                }}
+              >
+                <GoIcon />
+              </span>
+            </div>
+            <div className="row-line">
+              <span className="location">{car.location}</span>
+              {zoneLabel(car) && <span className="zone-route">{zoneLabel(car)}</span>}
+            </div>
           </button>
         </li>
       ))}

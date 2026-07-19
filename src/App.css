@@ -207,8 +207,8 @@
 
 .car-row {
   display: flex;
-  align-items: center;
-  gap: 0.85rem;
+  flex-direction: column;
+  gap: 0.35rem;
   width: 100%;
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--border);
@@ -225,6 +225,37 @@
   border-color: var(--accent-2);
   background: var(--surface-2);
   transform: translateY(-1px);
+}
+
+.car-row.selected {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.row-line {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.row-line .distance {
+  margin-left: auto;
+}
+
+.maps-link {
+  display: inline-flex;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.maps-link:hover {
+  color: var(--accent-2);
+}
+
+.row-line .zone-route {
+  margin-left: auto;
 }
 
 .chip {
@@ -258,6 +289,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.88rem;
+}
+
+.zone-route {
+  font-family: var(--font-mono);
+  color: var(--accent-2);
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .distance {

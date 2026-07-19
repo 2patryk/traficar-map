@@ -4,6 +4,8 @@ import { useCars } from './hooks/useCars.js'
 import { useGeolocation } from './hooks/useGeolocation.js'
 import { useRelocationZone } from './hooks/useRelocationZone.js'
 import { ZONE_CENTER_OVERRIDES, zoneCenter } from './utils/zoneCenters.js'
+import { zoneProximity } from './utils/geo.js'
+import { fetchRouteGeometry, useDrivingRoutes } from './hooks/useDrivingRoutes.js'
 import { ZonePicker } from './components/ZonePicker.jsx'
 import { CarMap } from './components/CarMap.jsx'
 import { CarList } from './components/CarList.jsx'
@@ -62,6 +64,73 @@ function App() {
   const effectiveShowAll = carsShowAll ?? showAll
   const { position, denied, loading: locating, request: requestLocation } = useGeolocation()
   const { shape: relocationZone, version: relocationZoneVersion } = useRelocationZone(zoneId)
+
+  // Bliskość strefy relokacji — tylko dla aut z rabatem Relokacja (dla innych
+  // bez znaczenia). Liczona raz na zmianę danych, bo kształt strefy ma tysiące
+  // wierzchołków. Wartość: { km, point } albo { km: 0 } gdy auto w strefie.
+  const zoneDistances = useMemo(() => {
+    if (!relocationZone) return null
+    const byId = new Map()
+    for (const car of cars) {
+      if (car.discounts?.some((d) => d.name === 'Relokacja')) {
+        byId.set(car.id, zoneProximity(car.lat, car.lng, relocationZone))
+      }
+    }
+    return byId
+  }, [cars, relocationZone])
+
+  // Trasa autem (OSRM) od auta do najbliższego punktu granicy strefy
+  const routeTargets = useMemo(() => {
+    if (!zoneDistances) return []
+    const targets = []
+    for (const car of cars) {
+      const prox = zoneDistances.get(car.id)
+      if (prox?.point) {
+        targets.push({ id: car.id, from: { lat: car.lat, lng: car.lng }, to: prox.point })
+      }
+    }
+    return targets
+  }, [cars, zoneDistances])
+  const drivingRoutes = useDrivingRoutes(routeTargets)
+
+  // Kliknięte auto: rysujemy jego trasę do strefy na mapie
+  const [selectedCarId, setSelectedCarId] = useState(null)
+  const [selectedRoute, setSelectedRoute] = useState(null)
+
+  useEffect(() => {
+    setSelectedCarId(null)
+    setSelectedRoute(null)
+  }, [zoneId])
+
+  const selectedCar = useMemo(
+    () => cars.find((c) => c.id === selectedCarId) ?? null,
+    [cars, selectedCarId],
+  )
+
+  useEffect(() => {
+    if (!selectedCar) {
+      setSelectedRoute(null)
+      return
+    }
+    const prox = zoneDistances?.get(selectedCar.id)
+    if (!prox?.point) {
+      setSelectedRoute(null)
+      return
+    }
+    let cancelled = false
+    fetchRouteGeometry({ lat: selectedCar.lat, lng: selectedCar.lng }, prox.point)
+      .then((coords) => {
+        if (!cancelled && coords) setSelectedRoute({ carId: selectedCar.id, coords })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [selectedCar, zoneDistances])
+
+  const selectCar = (car) => {
+    setSelectedCarId((id) => (id === car.id ? null : car.id))
+  }
 
   const zone = useMemo(() => zones.find((z) => String(z.id) === String(zoneId)), [zones, zoneId])
   const origin = position ?? zoneCenter(zone)
@@ -149,8 +218,22 @@ function App() {
             relocationZone={relocationZone}
             relocationZoneVersion={relocationZoneVersion}
             showAll={effectiveShowAll}
+            zoneDistances={zoneDistances}
+            drivingRoutes={drivingRoutes}
+            selectedCar={selectedCar}
+            selectedRoute={selectedRoute}
+            onSelect={selectCar}
           />
-          <CarList cars={cars} origin={origin} loading={loading} showAll={effectiveShowAll} />
+          <CarList
+            cars={cars}
+            origin={origin}
+            loading={loading}
+            showAll={effectiveShowAll}
+            zoneDistances={zoneDistances}
+            drivingRoutes={drivingRoutes}
+            onSelect={selectCar}
+            selectedCarId={selectedCarId}
+          />
         </main>
       )}
     </div>
