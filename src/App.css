@@ -78,7 +78,9 @@
 }
 
 .zone-picker {
-  padding: 0.5rem 2rem 0.5rem 0.9rem;
+  box-sizing: border-box;
+  height: 2.5rem;
+  padding: 0 2rem 0 0.9rem;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%239096a3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 0.8rem center;
@@ -90,10 +92,12 @@
 }
 
 .icon-button {
+  box-sizing: border-box;
+  height: 2.5rem;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem 0.9rem;
+  padding: 0 0.9rem;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface-2);
@@ -539,7 +543,7 @@
   }
 
   .icon-button {
-    padding: 0.55rem;
+    padding: 0 0.65rem;
   }
 
   .icon-button svg {
