@@ -62,7 +62,7 @@ function App() {
   // Renderujemy auta w trybie, w którym je pobrano — po przełączeniu stare
   // dane zostają na ekranie we właściwej formie, aż dojedzie nowy fetch.
   const effectiveShowAll = carsShowAll ?? showAll
-  const { position, denied, loading: locating, request: requestLocation } = useGeolocation()
+  const { position, fix, denied, loading: locating, request: requestLocation } = useGeolocation()
   const { shape: relocationZone, version: relocationZoneVersion } = useRelocationZone(zoneId)
 
   // Bliskość strefy relokacji — tylko dla aut z rabatem Relokacja (dla innych
@@ -146,9 +146,10 @@ function App() {
     if (zc) setFocus(zc)
   }, [zone])
 
+  // Mapę przesuwa tylko jawny fix z kliknięcia, nie ciche aktualizacje watcha
   useEffect(() => {
-    if (position) setFocus(position)
-  }, [position])
+    if (fix) setFocus(fix)
+  }, [fix])
 
   const defaultCenter = ZONE_CENTER_OVERRIDES[DEFAULT_ZONE_NAME]
   const center = useMemo(
@@ -184,7 +185,7 @@ function App() {
           <button
             type="button"
             className={`icon-button${locating ? ' busy' : ''}`}
-            onClick={requestLocation}
+            onClick={() => requestLocation({ watch: true })}
             title="Użyj mojej lokalizacji"
           >
             <LocationIcon />
