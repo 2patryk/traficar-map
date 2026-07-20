@@ -14,11 +14,17 @@ const geometryCache = new Map()
 export async function fetchRouteGeometry(from, to) {
   const key = `${from.lat},${from.lng};${to.lat},${to.lng}`
   if (geometryCache.has(key)) return geometryCache.get(key)
-  const url = `${OSRM_BASE}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`
+  // alternatives: OSRM domyślnie optymalizuje czas — bierzemy najkrótszą
+  // dystansem spośród zaproponowanych wariantów
+  const url = `${OSRM_BASE}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&alternatives=3`
   const res = await fetch(url)
   if (!res.ok) return null
   const data = await res.json()
-  const coords = data.routes?.[0]?.geometry?.coordinates?.map(([lng, lat]) => [lat, lng]) ?? null
+  const shortest = (data.routes ?? []).reduce(
+    (best, r) => (!best || r.distance < best.distance ? r : best),
+    null,
+  )
+  const coords = shortest?.geometry?.coordinates?.map(([lng, lat]) => [lat, lng]) ?? null
   geometryCache.set(key, coords)
   return coords
 }
@@ -38,11 +44,15 @@ async function fetchBestEntry(from, candidates, zoneGeo) {
 
   let bestInside = null
   let bestAny = null
+  // Wybór po NAJKRÓTSZYM dystansie (nie czasie) — zwrot za relokację liczy
+  // się od kilometrów, remis rozstrzyga czas
+  const better = (a, b) =>
+    !b || a.distance < b.distance || (a.distance === b.distance && a.duration < b.duration)
   // Indeks 0 to samo auto (source) — pomijamy
   for (let i = 1; i < durations.length; i++) {
     if (durations[i] == null || distances[i] == null) continue
     const entry = { duration: durations[i], distance: distances[i], to: candidates[i - 1] }
-    if (!bestAny || entry.duration < bestAny.duration) bestAny = entry
+    if (better(entry, bestAny)) bestAny = entry
     // Tolerancja 150 m: snap kandydata granicznego ląduje na drodze biegnącej
     // po granicy — geometrycznie o włos "poza" strefą, praktycznie wjazd OK
     const snapped = data.destinations?.[i]?.location
@@ -51,7 +61,7 @@ async function fetchBestEntry(from, candidates, zoneGeo) {
         ? isInsideZone(snapped[1], snapped[0], zoneGeo) ||
           (zoneProximity(snapped[1], snapped[0], zoneGeo)?.km ?? Infinity) < 0.15
         : false
-    if (snappedOk && (!bestInside || entry.duration < bestInside.duration)) bestInside = entry
+    if (snappedOk && better(entry, bestInside)) bestInside = entry
   }
   const best = bestInside ?? bestAny
   return best ? { km: best.distance / 1000, min: best.duration / 60, to: best.to } : null

@@ -3,7 +3,7 @@ import { CircleMarker, GeoJSON, MapContainer, Marker, Polyline, Popup, TileLayer
 import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { formatDrive, formatZoneDistance, googleMapsUrl } from '../utils/geo.js'
-import { formatElapsed } from '../utils/time.js'
+import { formatElapsed, formatElapsedExact } from '../utils/time.js'
 import { formatPayout } from '../utils/payout.js'
 
 const ZONE_STYLE = {
@@ -151,7 +151,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
                   <br />
                 </>
               )}
-              Bez zmian od: {formatElapsed(car.lastUpdate)}
+              Bez zmian od: {formatElapsedExact(car.lastUpdate)}
               <br />
               {zoneLabel(car) && (
                 <>
