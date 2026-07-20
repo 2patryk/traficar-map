@@ -573,11 +573,14 @@
   }
 
   .car-map {
-    flex: 1 1 68%;
+    flex: 1 1 auto;
   }
 
   .list-pane {
-    flex: 1 1 32%;
+    /* Stała szerokość — flex-basis w % przeliczał się na nowo przy każdej
+       zmianie treści (dłuższy adres, inna kwota), przez co panel "skakał" */
+    flex: 0 0 380px;
+    width: 380px;
     border-top: none;
     border-left: 1px solid var(--border);
   }
