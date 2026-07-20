@@ -16,10 +16,13 @@ const SORTS = [
   { id: 'discount', label: 'Kwota rabatów' },
   { id: 'payout', label: 'Szac. zwrot' },
   { id: 'zone', label: 'Blisko strefy' },
+  { id: 'stale', label: 'Najdłużej stoi', showAllOnly: true },
 ]
 
 export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, selectedCarId }) {
   const [sortBy, setSortBy] = useState('distance')
+  // "Najdłużej stoi" ma sens tylko przy widoku wszystkich aut — poza nim wróć do domyślnego
+  const activeSort = sortBy === 'stale' && !showAll ? 'distance' : sortBy
 
   const sorted = useMemo(() => {
     const distTo = (car) =>
@@ -37,10 +40,11 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
       discount: (a, b) => b.discountSum - a.discountSum || distTo(a) - distTo(b),
       payout: (a, b) => payout(b) - payout(a) || distTo(a) - distTo(b),
       zone: (a, b) => zoneKm(a) - zoneKm(b) || distTo(a) - distTo(b),
-    }[sortBy]
+      stale: (a, b) => Date.parse(a.lastUpdate) - Date.parse(b.lastUpdate),
+    }[activeSort]
 
     return [...cars].sort(cmp)
-  }, [cars, origin, sortBy, zoneDistances, drivingRoutes, payouts])
+  }, [cars, origin, activeSort, zoneDistances, drivingRoutes, payouts])
 
   if (loading && sorted.length === 0) {
     return <p className="loading-state">{showAll ? 'Szukam aut…' : 'Szukam aut z rabatem…'}</p>
@@ -68,13 +72,13 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
   return (
     <div className="list-pane">
       <div className="list-toolbar" role="tablist" aria-label="Sortowanie">
-        {SORTS.map((s) => (
+        {SORTS.filter((s) => !s.showAllOnly || showAll).map((s) => (
           <button
             key={s.id}
             type="button"
             role="tab"
-            aria-selected={sortBy === s.id}
-            className={`sort-chip${sortBy === s.id ? ' active' : ''}`}
+            aria-selected={activeSort === s.id}
+            className={`sort-chip${activeSort === s.id ? ' active' : ''}`}
             onClick={() => setSortBy(s.id)}
           >
             {s.label}
