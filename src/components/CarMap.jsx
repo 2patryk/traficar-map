@@ -67,6 +67,25 @@ function PopupSync({ selectedCarId, markerRefs }) {
   return null
 }
 
+// Przy pierwszym załadowaniu danych dla strefy dopasuj widok tak, by objąć
+// wszystkie auta — zamiast trzymać stały zoom, który przy dużych miastach
+// pokazywał tylko fragment. Działa raz na zmianę strefy (ref po zoneKey),
+// kolejne odświeżenia feedu (co 60 s) nie ruszają już kamery.
+function FitCity({ cars, zoneKey }) {
+  const map = useMap()
+  const fitForRef = useRef(null)
+  useEffect(() => {
+    if (fitForRef.current === zoneKey) return
+    if (!cars.length) return
+    map.fitBounds(
+      cars.map((c) => [c.lat, c.lng]),
+      { padding: [40, 40], maxZoom: 14 },
+    )
+    fitForRef.current = zoneKey
+  }, [cars, zoneKey, map])
+  return null
+}
+
 function Recenter({ center, zoom }) {
   const map = useMap()
   useEffect(() => {
@@ -75,7 +94,7 @@ function Recenter({ center, zoom }) {
   return null
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, debugCandidates, bestEntry, onSelect }) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, debugCandidates, bestEntry, onSelect, zoneKey }) {
   const markerRefs = useRef(new Map())
 
   const zoneLabel = (car) => {
@@ -89,6 +108,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
   return (
     <MapContainer center={center} zoom={zoom} className="car-map">
       <Recenter center={center} zoom={zoom} />
+      <FitCity cars={cars} zoneKey={zoneKey} />
       <PopupSync selectedCarId={selectedCar?.id ?? null} markerRefs={markerRefs} />
       {selectedCar && (
         <FitSelection

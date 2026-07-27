@@ -207,6 +207,9 @@ function App() {
         </div>
 
         <div className="header-controls">
+          <span className="car-count-badge" title="Liczba widocznych aut">
+            {cars.length} {effectiveShowAll ? 'aut' : 'z rabatem'}
+          </span>
           <ZonePicker zones={zones} zoneId={zoneId} onChange={setZoneId} />
           <button
             type="button"
@@ -262,6 +265,7 @@ function App() {
             debugCandidates={debugCandidates}
             bestEntry={bestEntry}
             onSelect={(car) => selectCar(car, { toggle: false })}
+            zoneKey={zoneId}
           />
           <CarList
             cars={cars}

@@ -91,6 +91,22 @@
   cursor: pointer;
 }
 
+.car-count-badge {
+  box-sizing: border-box;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.9rem;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .icon-button {
   box-sizing: border-box;
   height: 2.5rem;
