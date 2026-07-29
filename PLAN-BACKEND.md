@@ -222,17 +222,22 @@ zdejmie ruch z Mikrusa (1 GB RAM nie lubi ruchu).
 
 ## 6. Kroki wdrożenia
 
-- [ ] **Krok 0 — Mikrus**: wykupienie 2.1, klucz SSH, `apt install docker.io docker-compose-plugin`,
-      sprawdzenie przydzielonych portów i subdomeny w panelu
-- [ ] **Krok 1 — repo `server/`**: `server/Dockerfile`, `docker-compose.yml`,
+- [x] **Krok 0 — Mikrus**: eve137 (srv71), Ubuntu 24.04, docker + compose przez `get.docker.com`,
+      porty przydzielone: `20137`, `30137` (1:1 NAT), SSH na `10137` zabezpieczone kluczem
+- [x] **Krok 1 — repo `server/`**: `server/Dockerfile`, `docker-compose.yml`,
       `server/db/migrate.js` + `migrations/001_init.sql` (schemat z §3), wolumen `./data`
-- [ ] **Krok 2 — collector**: `server/collector.js` — `setInterval` 2 min, 10 stref
+- [x] **Krok 2 — collector**: `server/collector.js` — `setInterval` 2 min, 10 stref
       sekwencyjnie, logika z §3, transakcja per strefa, `poll_runs`.
       Idempotencja: dwa uruchomienia w tej samej minucie nie mogą zdublować postoju
-- [ ] **Krok 3 — API**: `server/api.js` (Fastify), na start `/api/cars` i `/api/health`
-- [ ] **Krok 4 — deploy + przełączenie frontendu**: `docker compose up -d`, HTTPS przez
-      Cytrus/Caddy, rewrite w `vercel.json`, `formatElapsed(parkedSince)`.
-      **Tu znika wada `lastUpdate` — pierwsza realna wartość dla użytkownika**
+- [x] **Krok 3 — API**: `server/api.js` (Fastify), `/api/cars` i `/api/health`
+- [x] **Krok 4 — deploy + przełączenie frontendu**: `docker compose up -d` na porcie `20137`,
+      rewrite w `vercel.json` (`/api/cars`, `/api/health` → Mikrus; `/api/v1/*` zostaje na
+      fioletowe.live), `formatElapsed(parkedSince)`. **Wada `lastUpdate` zniknęła w produkcji**
+      (`traficar-map.vercel.app`).
+      **HTTPS Mikrus↔Vercel odłożone**: Cytrus (jedyna gotowa opcja) jest płatny, decyzja
+      użytkownika — zostajemy na plain HTTP na tym odcinku. Dane publiczne (pozycje aut),
+      zero sekretów w requeście, przeglądarka i tak łączy się z Vercelem po HTTPS. Do
+      rewizji, jeśli pojawi się tania/darmowa domena pod Cloudflare (Caddy + DNS-01)
 - [ ] **Krok 5 — historia**: `/api/cars/:id/history` + `CarHistory.jsx`
 - [ ] **Krok 6 — statystyki**: `/api/stats/longest-parked`, ranking, opcjonalnie heatmapa
       miejsc długiego postoju (agregat `parkings` po siatce ~200 m)
