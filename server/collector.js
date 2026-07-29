@@ -1,6 +1,13 @@
 import { migrate } from './db/migrate.js'
 import { ping } from './cronitor.js'
 
+// fetch + AbortSignal.timeout occasionally rejects outside the awaiting
+// try/catch (known Node/undici race) — without this handler that kills the
+// whole process, turning one flaky request into a crash loop.
+process.on('unhandledRejection', (err) => {
+  console.error('unhandled rejection (ignored, cycle continues)', err)
+})
+
 const API_BASE = 'https://fioletowe.live/api/v1'
 const CYCLE_INTERVAL_MS = 2 * 60 * 1000
 const MOVE_THRESHOLD_M = 75

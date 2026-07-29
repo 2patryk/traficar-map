@@ -4,6 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { openDb } from './db/migrate.js'
 import { ping } from './cronitor.js'
 
+process.on('unhandledRejection', (err) => {
+  console.error('unhandled rejection (ignored)', err)
+})
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'traficar.db')
 const BACKUP_DIR = path.join(path.dirname(DB_PATH), 'backups')

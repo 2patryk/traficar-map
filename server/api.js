@@ -1,6 +1,10 @@
 import Fastify from 'fastify'
 import { openDb } from './db/migrate.js'
 
+process.on('unhandledRejection', (err) => {
+  console.error('unhandled rejection (ignored)', err)
+})
+
 const PORT = Number(process.env.PORT) || 3000
 const STALE_AFTER_MS = 15 * 60 * 1000
 
