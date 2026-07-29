@@ -30,7 +30,7 @@ services:
       - ./data:/app/data
     environment:
       DB_PATH: /app/data/traficar.db
-      PORT: 3000
+      PORT: 20137
     ports:
-      - '3000:3000'
+      - '20137:20137'
     command: node api.js

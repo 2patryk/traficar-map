@@ -56,10 +56,11 @@ const statements = {
       'WHERE c.zone_id = ? AND p.ended_at IS NULL'
   ),
   upsertCar: db.prepare(
-    'INSERT INTO cars (id, reg_plate, side_number, model_id, zone_id, first_seen_at, last_seen_at) ' +
-      'VALUES (@id, @regPlate, @sideNumber, @modelId, @zoneId, @now, @now) ' +
+    'INSERT INTO cars (id, reg_plate, side_number, model_id, zone_id, fuel, range, first_seen_at, last_seen_at) ' +
+      'VALUES (@id, @regPlate, @sideNumber, @modelId, @zoneId, @fuel, @range, @now, @now) ' +
       'ON CONFLICT(id) DO UPDATE SET reg_plate = excluded.reg_plate, side_number = excluded.side_number, ' +
-      'model_id = excluded.model_id, zone_id = excluded.zone_id, last_seen_at = excluded.last_seen_at'
+      'model_id = excluded.model_id, zone_id = excluded.zone_id, fuel = excluded.fuel, range = excluded.range, ' +
+      'last_seen_at = excluded.last_seen_at'
   ),
   lastClosedParking: db.prepare(
     'SELECT * FROM parkings WHERE car_id = ? ORDER BY started_at DESC LIMIT 1'
@@ -123,6 +124,8 @@ function processZone(zoneId, apiCars, now, boundaryTime) {
       sideNumber: car.sideNumber ?? null,
       modelId: car.modelId ?? null,
       zoneId,
+      fuel: car.fuel ?? null,
+      range: car.range ?? null,
       now,
     })
 

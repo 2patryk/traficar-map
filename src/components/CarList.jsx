@@ -40,7 +40,7 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
       discount: (a, b) => b.discountSum - a.discountSum || distTo(a) - distTo(b),
       payout: (a, b) => payout(b) - payout(a) || distTo(a) - distTo(b),
       zone: (a, b) => zoneKm(a) - zoneKm(b) || distTo(a) - distTo(b),
-      stale: (a, b) => Date.parse(a.lastUpdate) - Date.parse(b.lastUpdate),
+      stale: (a, b) => Date.parse(a.parkedSince) - Date.parse(b.parkedSince),
     }[activeSort]
 
     return [...cars].sort(cmp)
@@ -95,7 +95,7 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
           >
             <div className="row-line">
               <span className={showAll && !car.discountSum ? 'chip time' : 'chip'}>
-                {showAll ? formatElapsed(car.lastUpdate) : `${car.discountSum} zł`}
+                {showAll ? formatElapsed(car.parkedSince) : `${car.discountSum} zł`}
               </span>
               <span className="plate">{car.regPlate}</span>
               {origin && (

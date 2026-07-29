@@ -14,7 +14,7 @@ const ZONE_STYLE = {
 }
 
 function carIcon(car, showAll) {
-  const label = showAll ? formatElapsed(car.lastUpdate) : `${car.discountSum} zł`
+  const label = showAll ? formatElapsed(car.parkedSince) : `${car.discountSum} zł`
   const cls = showAll && !car.discountSum ? 'car-pin time' : 'car-pin'
   return divIcon({
     className: 'car-pin-wrap',
@@ -171,7 +171,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
                   <br />
                 </>
               )}
-              Bez zmian od: {formatElapsedExact(car.lastUpdate)}
+              Stoi od: {formatElapsedExact(car.parkedSince)}
               <br />
               {zoneLabel(car) && (
                 <>

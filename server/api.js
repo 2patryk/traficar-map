@@ -16,7 +16,7 @@ const statements = {
   carsBase: db.prepare(`
     SELECT
       c.id, c.reg_plate AS regPlate, c.side_number AS sideNumber, c.model_id AS modelId,
-      c.zone_id AS zoneId, p.lat, p.lng, p.location, p.started_at AS parkedSince
+      c.zone_id AS zoneId, c.fuel, c.range, p.lat, p.lng, p.location, p.started_at AS parkedSince
     FROM cars c
     JOIN parkings p ON p.car_id = c.id AND p.ended_at IS NULL
     WHERE c.zone_id = ?

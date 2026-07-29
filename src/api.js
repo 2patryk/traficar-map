@@ -29,15 +29,14 @@ export function fetchCarModels() {
 }
 
 export async function fetchCars(zoneId, discountTypes = ['Relokacja']) {
-  // discountTypes = null → bez filtra, API zwraca wszystkie dostępne auta
+  // discountTypes = null → bez filtra, własne API zwraca wszystkie dostępne auta
   const params = new URLSearchParams({ zoneId })
   if (discountTypes?.length) {
-    params.set('discounts', 'true')
     for (const type of discountTypes) params.append('discountType', type)
   }
 
   const [res, models] = await Promise.all([
-    fetch(`${API_BASE}/cars?${params.toString()}`),
+    fetch(`/api/cars?${params.toString()}`),
     fetchCarModels(),
   ])
   if (!res.ok) throw new Error(`Nie udało się pobrać aut (${res.status})`)
@@ -52,8 +51,11 @@ export async function fetchCars(zoneId, discountTypes = ['Relokacja']) {
 
   return cars.filter(isPassenger).map((car) => ({
     ...car,
-    lat: parseFloat(car.lat),
-    lng: parseFloat(car.lng),
     discountSum: (car.discounts ?? []).reduce((sum, d) => sum + d.amount, 0),
   }))
+}
+
+export async function fetchHealth() {
+  const res = await fetch('/api/health')
+  return res.json()
 }
