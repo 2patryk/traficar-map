@@ -1,0 +1,39 @@
+name: Deploy server to Mikrus
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-server.yml'
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MIKRUS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.MIKRUS_PORT }} ${{ secrets.MIKRUS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rsync server/ to Mikrus
+        run: |
+          rsync -az --delete \
+            --exclude node_modules --exclude data \
+            -e "ssh -p ${{ secrets.MIKRUS_PORT }} -i ~/.ssh/id_ed25519" \
+            server/ root@${{ secrets.MIKRUS_HOST }}:/opt/traficar/
+
+      - name: Rebuild and restart containers
+        run: |
+          ssh -p ${{ secrets.MIKRUS_PORT }} -i ~/.ssh/id_ed25519 root@${{ secrets.MIKRUS_HOST }} \
+            "cd /opt/traficar && docker compose build && docker compose up -d && docker image prune -f"
+
+      - name: Verify health
+        run: |
+          sleep 5
+          curl -sf "http://${{ secrets.MIKRUS_HOST }}:20137/api/health" > /dev/null
