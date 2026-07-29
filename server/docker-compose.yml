@@ -1,0 +1,36 @@
+services:
+  migrate:
+    build: .
+    volumes:
+      - ./data:/app/data
+    environment:
+      DB_PATH: /app/data/traficar.db
+    command: node db/migrate.js
+
+  collector:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/app/data
+    environment:
+      DB_PATH: /app/data/traficar.db
+      CRONITOR_API_KEY: ${CRONITOR_API_KEY:-}
+    command: node collector.js
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/app/data
+    environment:
+      DB_PATH: /app/data/traficar.db
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    command: node api.js
