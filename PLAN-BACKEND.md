@@ -238,11 +238,24 @@ zdejmie ruch z Mikrusa (1 GB RAM nie lubi ruchu).
       użytkownika — zostajemy na plain HTTP na tym odcinku. Dane publiczne (pozycje aut),
       zero sekretów w requeście, przeglądarka i tak łączy się z Vercelem po HTTPS. Do
       rewizji, jeśli pojawi się tania/darmowa domena pod Cloudflare (Caddy + DNS-01)
-- [ ] **Krok 5 — historia**: `/api/cars/:id/history` + `CarHistory.jsx`
-- [ ] **Krok 6 — statystyki**: `/api/stats/longest-parked`, ranking, opcjonalnie heatmapa
-      miejsc długiego postoju (agregat `parkings` po siatce ~200 m)
-- [ ] **Krok 7 — utrzymanie**: nocny job (retencja 180 dni, `gone`, `VACUUM`),
-      backup `sqlite3 .backup` + `rsync`/`rclone` poza Mikrusa, monitoring przez Cronitor (§7)
+- [x] **Krok 5 — historia**: `/api/cars/:id/history` + `CarHistory.jsx`, trasa auta
+      rysowana na mapie (numerowane markery + przerywana polilinia)
+- [x] **Krok 6 — statystyki**: `/api/stats/longest-parked` (ranking), `/api/stats/heatmap`
+      (agregat `parkings` po siatce ~0.001°, waga = minuty postoju), warstwa na mapie
+- [x] **Krok 7 — utrzymanie**: `server/nightly.js` o 03:00 UTC — `gone` po 48h nieobecności,
+      retencja 180 dni, `VACUUM`, backup przez `db.backup()` (14 dni lokalnie na Mikrusie).
+      `server/cronitor.js` — dead man's switch wpięty w collector i nightly, no-op bez
+      `CRONITOR_API_KEY` (konto do założenia przez użytkownika, klucz przez env, nigdy w repo)
+- [x] **Krok 8 — CI/CD**: `.github/workflows/deploy-server.yml` — push do `main` dotykający
+      `server/**` rsync'uje katalog na Mikrusa (dedykowany klucz deploy, nie osobisty) i
+      przebudowuje `docker compose`. `.github/workflows/backup.yml` — codziennie ściąga
+      `data/backups/` z Mikrusa jako artefakt GitHub Actions (kopia poza VPS-em).
+      **Zablokowane**: konto GitHub ma problem z płatnościami — Actions nie odpalają
+      joba, dopóki użytkownik nie odblokuje w Billing & plans
+- [x] **Krok 9 — zakładka statystyk floty**: `StatsView.jsx` — tabela per strefa
+      (dostępne teraz / z Relokacją teraz / średnie z okresu / suma rabatów) +
+      wykres SVG (dostępne vs z Relokacją w czasie, zakres 24h/7d/30d), zasilane
+      z `zone_snapshots` (zapis co cykl collectora)
 
 **Kolejność ma znaczenie**: kroki 1–4 dają natychmiastową wartość bez nowego UI.
 Historia (5–6) i tak wymaga kilku dni zebranych danych.
