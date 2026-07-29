@@ -46,6 +46,16 @@ const statements = {
     WHERE car_id = ? AND departed_at >= ?
     ORDER BY departed_at DESC
   `),
+  longestParked: db.prepare(`
+    SELECT
+      c.id, c.reg_plate AS regPlate, c.fuel, c.range,
+      p.lat, p.lng, p.location, p.started_at AS parkedSince
+    FROM cars c
+    JOIN parkings p ON p.car_id = c.id AND p.ended_at IS NULL
+    WHERE c.zone_id = ?
+    ORDER BY p.started_at ASC
+    LIMIT ?
+  `),
 }
 
 fastify.get('/api/cars', async (request, reply) => {
@@ -102,6 +112,22 @@ fastify.get('/api/cars/:id/history', async (request, reply) => {
   const totalKm = trips.reduce((sum, t) => sum + (t.km ?? 0), 0)
 
   return { car, days, totalKm, timeline }
+})
+
+fastify.get('/api/stats/longest-parked', async (request, reply) => {
+  const { zoneId } = request.query
+  if (!zoneId) {
+    reply.code(400)
+    return { error: 'zoneId is required' }
+  }
+
+  const limit = Math.min(100, Math.max(1, Number(request.query.limit) || 20))
+  const cars = statements.longestParked.all(Number(zoneId), limit).map((car) => ({
+    ...car,
+    discounts: statements.discountsForCar.all(car.id),
+  }))
+
+  return { cars }
 })
 
 fastify.get('/api/health', async (request, reply) => {

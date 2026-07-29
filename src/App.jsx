@@ -11,6 +11,7 @@ import { ZonePicker } from './components/ZonePicker.jsx'
 import { CarMap } from './components/CarMap.jsx'
 import { CarList } from './components/CarList.jsx'
 import { CarHistory } from './components/CarHistory.jsx'
+import { LongestParkedPanel } from './components/LongestParkedPanel.jsx'
 import './App.css'
 
 const DEFAULT_ZONE_NAME = 'Łódź'
@@ -37,6 +38,15 @@ function CarsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11M5 11h14M5 11a2 2 0 0 0-2 2v4h2m14-6a2 2 0 0 1 2 2v4h-2m-14 0v2m0-2h14m0 0v2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function RankingIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -121,6 +131,7 @@ function App() {
   // Kliknięte auto: rysujemy jego trasę do strefy na mapie
   const [selectedCarId, setSelectedCarId] = useState(null)
   const [historyCarId, setHistoryCarId] = useState(null)
+  const [showRanking, setShowRanking] = useState(false)
   const [selectedRoute, setSelectedRoute] = useState(null)
 
   useEffect(() => {
@@ -228,6 +239,19 @@ function App() {
           </button>
           <button
             type="button"
+            className={`icon-button${showRanking ? ' primary' : ''}`}
+            onClick={() => {
+              setHistoryCarId(null)
+              setShowRanking((v) => !v)
+            }}
+            disabled={!zoneId}
+            title="Ranking najdłużej stojących aut w strefie"
+          >
+            <RankingIcon />
+            <span className="btn-label">Ranking</span>
+          </button>
+          <button
+            type="button"
             className={`icon-button${locating ? ' busy' : ''}`}
             onClick={() => requestLocation({ watch: true })}
             title="Użyj mojej lokalizacji"
@@ -279,6 +303,15 @@ function App() {
               carId={historyCar.id}
               regPlate={historyCar.regPlate}
               onClose={() => setHistoryCarId(null)}
+            />
+          ) : showRanking ? (
+            <LongestParkedPanel
+              zoneId={zoneId}
+              onSelect={(car) => {
+                selectCar(car, { toggle: false })
+                setShowRanking(false)
+              }}
+              onClose={() => setShowRanking(false)}
             />
           ) : (
             <CarList
