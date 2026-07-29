@@ -3,7 +3,7 @@ import { ping } from './cronitor.js'
 
 const API_BASE = 'https://fioletowe.live/api/v1'
 const CYCLE_INTERVAL_MS = 2 * 60 * 1000
-const MOVE_THRESHOLD_M = 30
+const MOVE_THRESHOLD_M = 75
 const GAP_THRESHOLD_MIN = 10
 const FETCH_TIMEOUT_MS = 15_000
 
@@ -283,7 +283,7 @@ async function main() {
       await ping('traficar-collector', {
         state: zonesFailed.length === zoneIds.length ? 'fail' : 'complete',
         series,
-        metric: [`count:${carsSeen}`, `duration:${durationS}`, `error_count:${zonesFailed.length}`].join(','),
+        metric: [`count:${carsSeen}`, `duration:${durationS}`, `error_count:${zonesFailed.length}`],
         message: zonesFailed.length ? `strefy bez danych: ${zonesFailed.join(',')}` : '',
       })
       console.log(
