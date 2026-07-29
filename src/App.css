@@ -545,6 +545,51 @@
   width: 15px;
   height: 15px;
 }
+
+button.nav-button {
+  border: none;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.history-header strong {
+  font-family: var(--font-mono);
+}
+
+.history-subtitle {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+.history-total {
+  padding: 0.5rem 0.85rem 0;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.history-list {
+  margin-top: 0.5rem;
+}
+
+.history-row {
+  cursor: default;
+}
+
+.history-row.history-trip .location {
+  color: var(--text-dim);
+}
 @media (max-width: 640px) {
   .app-header {
     padding: 0.7rem 0.85rem;

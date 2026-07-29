@@ -11,6 +11,15 @@ function GoIcon() {
   )
 }
 
+function HistoryIcon() {
+  return (
+    <svg className="go-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 12a9 9 0 1 0 3-6.7M3 12V6m0 6h6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 const SORTS = [
   { id: 'distance', label: 'Najbliżej mnie' },
   { id: 'discount', label: 'Kwota rabatów' },
@@ -19,7 +28,7 @@ const SORTS = [
   { id: 'stale', label: 'Najdłużej stoi', showAllOnly: true },
 ]
 
-export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, selectedCarId }) {
+export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, onShowHistory, selectedCarId }) {
   const [sortBy, setSortBy] = useState('distance')
   // "Najdłużej stoi" ma sens tylko przy widoku wszystkich aut — poza nim wróć do domyślnego
   const activeSort = sortBy === 'stale' && !showAll ? 'distance' : sortBy
@@ -115,6 +124,20 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
               >
                 <GoIcon />
               </span>
+              {onShowHistory && (
+                <span
+                  className="maps-link"
+                  role="link"
+                  tabIndex={0}
+                  title="Historia auta"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onShowHistory(car)
+                  }}
+                >
+                  <HistoryIcon />
+                </span>
+              )}
             </div>
             <div className="row-line">
               <span className="location">{car.location}</span>

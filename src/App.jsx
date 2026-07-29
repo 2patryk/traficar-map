@@ -10,6 +10,7 @@ import { fetchRouteGeometry, useDrivingRoutes } from './hooks/useDrivingRoutes.j
 import { ZonePicker } from './components/ZonePicker.jsx'
 import { CarMap } from './components/CarMap.jsx'
 import { CarList } from './components/CarList.jsx'
+import { CarHistory } from './components/CarHistory.jsx'
 import './App.css'
 
 const DEFAULT_ZONE_NAME = 'Łódź'
@@ -119,6 +120,7 @@ function App() {
 
   // Kliknięte auto: rysujemy jego trasę do strefy na mapie
   const [selectedCarId, setSelectedCarId] = useState(null)
+  const [historyCarId, setHistoryCarId] = useState(null)
   const [selectedRoute, setSelectedRoute] = useState(null)
 
   useEffect(() => {
@@ -129,6 +131,10 @@ function App() {
   const selectedCar = useMemo(
     () => cars.find((c) => c.id === selectedCarId) ?? null,
     [cars, selectedCarId],
+  )
+  const historyCar = useMemo(
+    () => cars.find((c) => c.id === historyCarId) ?? null,
+    [cars, historyCarId],
   )
 
   useEffect(() => {
@@ -265,19 +271,29 @@ function App() {
             debugCandidates={debugCandidates}
             bestEntry={bestEntry}
             onSelect={(car) => selectCar(car, { toggle: false })}
+            onShowHistory={(car) => setHistoryCarId(car.id)}
             zoneKey={zoneId}
           />
-          <CarList
-            cars={cars}
-            origin={origin}
-            loading={loading}
-            showAll={effectiveShowAll}
-            zoneDistances={zoneDistances}
-            drivingRoutes={drivingRoutes}
-            payouts={payouts}
-            onSelect={selectCar}
-            selectedCarId={selectedCarId}
-          />
+          {historyCar ? (
+            <CarHistory
+              carId={historyCar.id}
+              regPlate={historyCar.regPlate}
+              onClose={() => setHistoryCarId(null)}
+            />
+          ) : (
+            <CarList
+              cars={cars}
+              origin={origin}
+              loading={loading}
+              showAll={effectiveShowAll}
+              zoneDistances={zoneDistances}
+              drivingRoutes={drivingRoutes}
+              payouts={payouts}
+              onSelect={selectCar}
+              onShowHistory={(car) => setHistoryCarId(car.id)}
+              selectedCarId={selectedCarId}
+            />
+          )}
         </main>
       )}
     </div>

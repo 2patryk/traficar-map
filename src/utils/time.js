@@ -29,3 +29,17 @@ export function formatElapsedExact(iso, now = Date.now()) {
   parts.push(`${minutes}m`)
   return parts.join(' ')
 }
+
+// Czas trwania z gotowej liczby minut (np. z API): "1d 2h", "45m"
+export function formatDurationMin(totalMin) {
+  if (totalMin < 1) return '<1m'
+  const days = Math.floor(totalMin / 1440)
+  const hours = Math.floor((totalMin % 1440) / 60)
+  const minutes = totalMin % 60
+
+  const parts = []
+  if (days > 0) parts.push(`${days}d`)
+  if (hours > 0 || days > 0) parts.push(`${hours}h`)
+  if (days === 0) parts.push(`${minutes}m`)
+  return parts.join(' ')
+}

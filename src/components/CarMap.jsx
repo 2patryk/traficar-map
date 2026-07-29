@@ -94,7 +94,7 @@ function Recenter({ center, zoom }) {
   return null
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, debugCandidates, bestEntry, onSelect, zoneKey }) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, debugCandidates, bestEntry, onSelect, onShowHistory, zoneKey }) {
   const markerRefs = useRef(new Map())
 
   const zoneLabel = (car) => {
@@ -196,6 +196,15 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
                 </svg>
                 Otwórz w Google Maps
               </a>
+              {onShowHistory && (
+                <button
+                  type="button"
+                  className="nav-button"
+                  onClick={() => onShowHistory(car)}
+                >
+                  Historia auta
+                </button>
+              )}
             </div>
           </Popup>
         </Marker>

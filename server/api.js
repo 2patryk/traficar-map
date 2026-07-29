@@ -33,6 +33,19 @@ const statements = {
     GROUP BY zone_id
   `),
   zones: db.prepare('SELECT id, name, lat, lng FROM zones'),
+  carMeta: db.prepare('SELECT id, reg_plate AS regPlate, zone_id AS zoneId FROM cars WHERE id = ?'),
+  historyParkings: db.prepare(`
+    SELECT lat, lng, location, started_at AS startedAt, ended_at AS endedAt
+    FROM parkings
+    WHERE car_id = ? AND started_at >= ?
+    ORDER BY started_at DESC
+  `),
+  historyTrips: db.prepare(`
+    SELECT departed_at AS departedAt, arrived_at AS arrivedAt, straight_km AS straightKm
+    FROM trips
+    WHERE car_id = ? AND departed_at >= ?
+    ORDER BY departed_at DESC
+  `),
 }
 
 fastify.get('/api/cars', async (request, reply) => {
@@ -54,6 +67,41 @@ fastify.get('/api/cars', async (request, reply) => {
     : cars
 
   return { cars: filtered }
+})
+
+fastify.get('/api/cars/:id/history', async (request, reply) => {
+  const carId = Number(request.params.id)
+  const car = statements.carMeta.get(carId)
+  if (!car) {
+    reply.code(404)
+    return { error: 'car not found' }
+  }
+
+  const days = Math.min(90, Math.max(1, Number(request.query.days) || 30))
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+  const now = Date.now()
+
+  const parkings = statements.historyParkings.all(carId, since).map((p) => ({
+    type: 'parking',
+    lat: p.lat,
+    lng: p.lng,
+    location: p.location,
+    from: p.startedAt,
+    to: p.endedAt,
+    durationMin: Math.round(((p.endedAt ? Date.parse(p.endedAt) : now) - Date.parse(p.startedAt)) / 60000),
+  }))
+
+  const trips = statements.historyTrips.all(carId, since).map((t) => ({
+    type: 'trip',
+    km: t.straightKm,
+    from: t.departedAt,
+    to: t.arrivedAt,
+  }))
+
+  const timeline = [...parkings, ...trips].sort((a, b) => Date.parse(b.from) - Date.parse(a.from))
+  const totalKm = trips.reduce((sum, t) => sum + (t.km ?? 0), 0)
+
+  return { car, days, totalKm, timeline }
 })
 
 fastify.get('/api/health', async (request, reply) => {

@@ -2,6 +2,7 @@
   "rewrites": [
     { "source": "/api/v1/:path*", "destination": "https://fioletowe.live/api/v1/:path*" },
     { "source": "/api/cars", "destination": "http://eve137.mikrus.xyz:20137/api/cars" },
+    { "source": "/api/cars/:id/history", "destination": "http://eve137.mikrus.xyz:20137/api/cars/:id/history" },
     { "source": "/api/health", "destination": "http://eve137.mikrus.xyz:20137/api/health" }
   ]
 }

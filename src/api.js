@@ -55,6 +55,12 @@ export async function fetchCars(zoneId, discountTypes = ['Relokacja']) {
   }))
 }
 
+export async function fetchCarHistory(carId, days = 30) {
+  const res = await fetch(`/api/cars/${carId}/history?days=${days}`)
+  if (!res.ok) throw new Error(`Nie udało się pobrać historii auta (${res.status})`)
+  return res.json()
+}
+
 export async function fetchHealth() {
   const res = await fetch('/api/health')
   return res.json()
