@@ -19,7 +19,7 @@ function formatWhen(iso) {
   })
 }
 
-export function CarHistory({ carId, regPlate, onClose }) {
+export function CarHistory({ carId, regPlate, onClose, onData }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
@@ -27,10 +27,13 @@ export function CarHistory({ carId, regPlate, onClose }) {
     let cancelled = false
     setData(null)
     setError(null)
+    onData?.(null)
 
     fetchCarHistory(carId)
       .then((result) => {
-        if (!cancelled) setData(result)
+        if (cancelled) return
+        setData(result)
+        onData?.(result.timeline.filter((e) => e.type === 'parking').reverse())
       })
       .catch((err) => {
         if (!cancelled) setError(err.message)
@@ -38,7 +41,9 @@ export function CarHistory({ carId, regPlate, onClose }) {
 
     return () => {
       cancelled = true
+      onData?.(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onData ma stabilną tożsamość (setter z App), nie chcemy re-fetchować przy jego zmianie
   }, [carId])
 
   return (

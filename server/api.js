@@ -56,6 +56,47 @@ const statements = {
     ORDER BY p.started_at ASC
     LIMIT ?
   `),
+  statsHistory: db.prepare(`
+    SELECT
+      strftime('%Y-%m-%dT%H:00:00Z', taken_at) AS bucket,
+      ROUND(AVG(cars_available)) AS carsAvailable,
+      ROUND(AVG(cars_relocation)) AS carsRelocation
+    FROM zone_snapshots
+    WHERE zone_id = ? AND taken_at >= ?
+    GROUP BY bucket
+    ORDER BY bucket ASC
+  `),
+  statsLatestSnapshot: db.prepare(`
+    SELECT cars_available AS carsAvailable, cars_relocation AS carsRelocation,
+           relocation_amount_sum AS relocationAmountSum, taken_at AS takenAt
+    FROM zone_snapshots
+    WHERE zone_id = ?
+    ORDER BY taken_at DESC
+    LIMIT 1
+  `),
+  statsAverages: db.prepare(`
+    SELECT
+      ROUND(AVG(cars_available), 1) AS avgAvailable,
+      ROUND(AVG(cars_relocation), 1) AS avgRelocation,
+      MAX(cars_relocation) AS peakRelocation,
+      MAX(relocation_amount_sum) AS peakRelocationAmount
+    FROM zone_snapshots
+    WHERE zone_id = ? AND taken_at >= ?
+  `),
+  heatmapCells: db.prepare(`
+    SELECT
+      ROUND(p.lat, 3) AS lat,
+      ROUND(p.lng, 3) AS lng,
+      SUM(
+        (julianday(COALESCE(p.ended_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))) - julianday(p.started_at)) * 1440
+      ) AS minutesParked
+    FROM parkings p
+    JOIN cars c ON c.id = p.car_id
+    WHERE c.zone_id = ? AND p.started_at >= ?
+    GROUP BY lat, lng
+    ORDER BY minutesParked DESC
+    LIMIT 500
+  `),
 }
 
 fastify.get('/api/cars', async (request, reply) => {
@@ -128,6 +169,64 @@ fastify.get('/api/stats/longest-parked', async (request, reply) => {
   }))
 
   return { cars }
+})
+
+fastify.get('/api/stats/history', async (request, reply) => {
+  const { zoneId } = request.query
+  if (!zoneId) {
+    reply.code(400)
+    return { error: 'zoneId is required' }
+  }
+  const days = Math.min(90, Math.max(1, Number(request.query.days) || 7))
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+
+  const series = statements.statsHistory.all(Number(zoneId), since)
+  return { zoneId: Number(zoneId), days, series }
+})
+
+fastify.get('/api/stats/summary', async (request) => {
+  const days = Math.min(90, Math.max(1, Number(request.query.days) || 7))
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+
+  const zones = statements.zones.all().map((zone) => {
+    const latest = statements.statsLatestSnapshot.get(zone.id)
+    const avg = statements.statsAverages.get(zone.id, since)
+    return {
+      zoneId: zone.id,
+      name: zone.name,
+      carsAvailable: latest?.carsAvailable ?? null,
+      carsRelocation: latest?.carsRelocation ?? null,
+      relocationAmountSum: latest?.relocationAmountSum ?? null,
+      lastSeenAt: latest?.takenAt ?? null,
+      avgAvailable: avg?.avgAvailable ?? null,
+      avgRelocation: avg?.avgRelocation ?? null,
+      peakRelocation: avg?.peakRelocation ?? null,
+      peakRelocationAmount: avg?.peakRelocationAmount ?? null,
+    }
+  })
+
+  const totals = zones.reduce(
+    (acc, z) => ({
+      carsAvailable: acc.carsAvailable + (z.carsAvailable ?? 0),
+      carsRelocation: acc.carsRelocation + (z.carsRelocation ?? 0),
+    }),
+    { carsAvailable: 0, carsRelocation: 0 }
+  )
+
+  return { days, totals, zones }
+})
+
+fastify.get('/api/stats/heatmap', async (request, reply) => {
+  const { zoneId } = request.query
+  if (!zoneId) {
+    reply.code(400)
+    return { error: 'zoneId is required' }
+  }
+  const days = Math.min(90, Math.max(1, Number(request.query.days) || 30))
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+
+  const cells = statements.heatmapCells.all(Number(zoneId), since)
+  return { zoneId: Number(zoneId), days, cells }
 })
 
 fastify.get('/api/health', async (request, reply) => {

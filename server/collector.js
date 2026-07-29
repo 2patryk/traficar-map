@@ -89,6 +89,10 @@ const statements = {
     'INSERT INTO poll_runs (started_at, finished_at, zone_id, cars_seen, api_last_update, error) ' +
       'VALUES (@startedAt, @finishedAt, @zoneId, @carsSeen, @apiLastUpdate, @error)'
   ),
+  insertZoneSnapshot: db.prepare(
+    'INSERT INTO zone_snapshots (zone_id, taken_at, cars_available, cars_relocation, relocation_amount_sum) ' +
+      'VALUES (@zoneId, @takenAt, @carsAvailable, @carsRelocation, @relocationAmountSum)'
+  ),
 }
 
 function applyDiscountDiff(carId, parkingId, discounts, now) {
@@ -228,8 +232,21 @@ async function runCycle(zoneIds) {
           }
         : { time: now.toISOString(), uncertain: false }
 
+      const relocationCars = cars.filter((c) => c.discounts?.some((d) => d.name === 'Relokacja'))
+      const relocationAmountSum = relocationCars.reduce(
+        (sum, c) => sum + c.discounts.find((d) => d.name === 'Relokacja').amount,
+        0
+      )
+
       db.transaction(() => {
         processZone(zoneId, cars, now.toISOString(), boundaryTime)
+        statements.insertZoneSnapshot.run({
+          zoneId,
+          takenAt: now.toISOString(),
+          carsAvailable: carsSeen,
+          carsRelocation: relocationCars.length,
+          relocationAmountSum,
+        })
       })()
 
       carsSeenTotal += carsSeen

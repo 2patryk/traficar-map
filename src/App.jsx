@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchCarModels, fetchZones } from './api.js'
+import { fetchCarModels, fetchHeatmap, fetchZones } from './api.js'
 import { relocationPayout } from './utils/payout.js'
 import { useCars } from './hooks/useCars.js'
 import { useGeolocation } from './hooks/useGeolocation.js'
@@ -12,6 +12,7 @@ import { CarMap } from './components/CarMap.jsx'
 import { CarList } from './components/CarList.jsx'
 import { CarHistory } from './components/CarHistory.jsx'
 import { LongestParkedPanel } from './components/LongestParkedPanel.jsx'
+import { StatsView } from './components/StatsView.jsx'
 import './App.css'
 
 const DEFAULT_ZONE_NAME = 'Łódź'
@@ -47,6 +48,22 @@ function RankingIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function StatsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 20V10M12 20V4M20 20v-7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function HeatmapIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 3c3 3 5 5.5 5 8.5A5 5 0 0 1 7 11.5C7 8.5 9 6 12 3z" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -131,13 +148,35 @@ function App() {
   // Kliknięte auto: rysujemy jego trasę do strefy na mapie
   const [selectedCarId, setSelectedCarId] = useState(null)
   const [historyCarId, setHistoryCarId] = useState(null)
+  const [historyTimeline, setHistoryTimeline] = useState(null)
   const [showRanking, setShowRanking] = useState(false)
   const [selectedRoute, setSelectedRoute] = useState(null)
+  const [view, setView] = useState('map')
+  const [heatmapOn, setHeatmapOn] = useState(false)
+  const [heatmapCells, setHeatmapCells] = useState(null)
+
+  useEffect(() => {
+    if (!heatmapOn || !zoneId) {
+      setHeatmapCells(null)
+      return
+    }
+    let cancelled = false
+    fetchHeatmap(zoneId).then((cells) => {
+      if (!cancelled) setHeatmapCells(cells)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [heatmapOn, zoneId])
 
   useEffect(() => {
     setSelectedCarId(null)
     setSelectedRoute(null)
   }, [zoneId])
+
+  useEffect(() => {
+    if (!historyCarId) setHistoryTimeline(null)
+  }, [historyCarId])
 
   const selectedCar = useMemo(
     () => cars.find((c) => c.id === selectedCarId) ?? null,
@@ -224,51 +263,76 @@ function App() {
         </div>
 
         <div className="header-controls">
-          <span className="car-count-badge" title="Liczba widocznych aut">
-            {cars.length} {effectiveShowAll ? 'aut' : 'z rabatem'}
-          </span>
+          {view === 'map' && (
+            <span className="car-count-badge" title="Liczba widocznych aut">
+              {cars.length} {effectiveShowAll ? 'aut' : 'z rabatem'}
+            </span>
+          )}
           <ZonePicker zones={zones} zoneId={zoneId} onChange={setZoneId} />
           <button
             type="button"
-            className={`icon-button${showAll ? ' primary' : ''}`}
-            onClick={() => setShowAll((v) => !v)}
-            title={showAll ? 'Pokaż tylko auta z relokacją' : 'Pokaż wszystkie auta (czas postoju)'}
+            className={`icon-button${view === 'stats' ? ' primary' : ''}`}
+            onClick={() => setView((v) => (v === 'stats' ? 'map' : 'stats'))}
+            title="Statystyki floty"
           >
-            <CarsIcon />
-            <span className="btn-label">Wszystkie</span>
+            <StatsIcon />
+            <span className="btn-label">Statystyki</span>
           </button>
-          <button
-            type="button"
-            className={`icon-button${showRanking ? ' primary' : ''}`}
-            onClick={() => {
-              setHistoryCarId(null)
-              setShowRanking((v) => !v)
-            }}
-            disabled={!zoneId}
-            title="Ranking najdłużej stojących aut w strefie"
-          >
-            <RankingIcon />
-            <span className="btn-label">Ranking</span>
-          </button>
-          <button
-            type="button"
-            className={`icon-button${locating ? ' busy' : ''}`}
-            onClick={() => requestLocation({ watch: true })}
-            title="Użyj mojej lokalizacji"
-          >
-            <LocationIcon />
-            <span className="btn-label">Moja lokalizacja</span>
-          </button>
-          <button
-            type="button"
-            className={`icon-button primary${loading ? ' spin' : ''}`}
-            onClick={refresh}
-            disabled={!zoneId || loading}
-            title="Odśwież"
-          >
-            <RefreshIcon />
-            <span className="btn-label">Odśwież</span>
-          </button>
+          {view === 'map' && (
+            <>
+              <button
+                type="button"
+                className={`icon-button${showAll ? ' primary' : ''}`}
+                onClick={() => setShowAll((v) => !v)}
+                title={showAll ? 'Pokaż tylko auta z relokacją' : 'Pokaż wszystkie auta (czas postoju)'}
+              >
+                <CarsIcon />
+                <span className="btn-label">Wszystkie</span>
+              </button>
+              <button
+                type="button"
+                className={`icon-button${showRanking ? ' primary' : ''}`}
+                onClick={() => {
+                  setHistoryCarId(null)
+                  setShowRanking((v) => !v)
+                }}
+                disabled={!zoneId}
+                title="Ranking najdłużej stojących aut w strefie"
+              >
+                <RankingIcon />
+                <span className="btn-label">Ranking</span>
+              </button>
+              <button
+                type="button"
+                className={`icon-button${heatmapOn ? ' primary' : ''}`}
+                onClick={() => setHeatmapOn((v) => !v)}
+                disabled={!zoneId}
+                title="Heatmapa długich postojów (30 dni)"
+              >
+                <HeatmapIcon />
+                <span className="btn-label">Heatmapa</span>
+              </button>
+              <button
+                type="button"
+                className={`icon-button${locating ? ' busy' : ''}`}
+                onClick={() => requestLocation({ watch: true })}
+                title="Użyj mojej lokalizacji"
+              >
+                <LocationIcon />
+                <span className="btn-label">Moja lokalizacja</span>
+              </button>
+              <button
+                type="button"
+                className={`icon-button primary${loading ? ' spin' : ''}`}
+                onClick={refresh}
+                disabled={!zoneId || loading}
+                title="Odśwież"
+              >
+                <RefreshIcon />
+                <span className="btn-label">Odśwież</span>
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -278,7 +342,11 @@ function App() {
         <p className="status-strip hint">Brak dostępu do lokalizacji — sortowanie od centrum strefy.</p>
       )}
 
-      {zoneId && (
+      {view === 'stats' && (
+        <StatsView zones={zones} zoneId={zoneId} onZoneChange={setZoneId} />
+      )}
+
+      {view === 'map' && zoneId && (
         <main className="app-main">
           <CarMap
             cars={cars}
@@ -296,6 +364,8 @@ function App() {
             bestEntry={bestEntry}
             onSelect={(car) => selectCar(car, { toggle: false })}
             onShowHistory={(car) => setHistoryCarId(car.id)}
+            historyTimeline={historyCarId ? historyTimeline : null}
+            heatmapCells={heatmapCells}
             zoneKey={zoneId}
           />
           {historyCar ? (
@@ -303,6 +373,7 @@ function App() {
               carId={historyCar.id}
               regPlate={historyCar.regPlate}
               onClose={() => setHistoryCarId(null)}
+              onData={setHistoryTimeline}
             />
           ) : showRanking ? (
             <LongestParkedPanel

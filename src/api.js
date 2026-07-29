@@ -68,6 +68,25 @@ export async function fetchLongestParked(zoneId, limit = 20) {
   return cars
 }
 
+export async function fetchStatsHistory(zoneId, days = 7) {
+  const res = await fetch(`/api/stats/history?zoneId=${zoneId}&days=${days}`)
+  if (!res.ok) throw new Error(`Nie udało się pobrać historii statystyk (${res.status})`)
+  return res.json()
+}
+
+export async function fetchStatsSummary(days = 7) {
+  const res = await fetch(`/api/stats/summary?days=${days}`)
+  if (!res.ok) throw new Error(`Nie udało się pobrać podsumowania (${res.status})`)
+  return res.json()
+}
+
+export async function fetchHeatmap(zoneId, days = 30) {
+  const res = await fetch(`/api/stats/heatmap?zoneId=${zoneId}&days=${days}`)
+  if (!res.ok) throw new Error(`Nie udało się pobrać heatmapy (${res.status})`)
+  const { cells } = await res.json()
+  return cells
+}
+
 export async function fetchHealth() {
   const res = await fetch('/api/health')
   return res.json()

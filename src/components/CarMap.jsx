@@ -94,8 +94,9 @@ function Recenter({ center, zoom }) {
   return null
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, debugCandidates, bestEntry, onSelect, onShowHistory, zoneKey }) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, debugCandidates, bestEntry, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey }) {
   const markerRefs = useRef(new Map())
+  const maxHeatWeight = heatmapCells?.length ? Math.max(...heatmapCells.map((c) => c.minutesParked)) : 0
 
   const zoneLabel = (car) => {
     const prox = zoneDistances?.get(car.id)
@@ -143,6 +144,40 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
       {relocationZone && (
         <GeoJSON key={relocationZoneVersion} data={relocationZone} style={ZONE_STYLE} />
       )}
+      {heatmapCells?.map((cell, i) => (
+        <CircleMarker
+          key={`heat-${i}`}
+          center={[cell.lat, cell.lng]}
+          radius={14}
+          pathOptions={{
+            stroke: false,
+            fillColor: '#8b5cf6',
+            fillOpacity: Math.min(0.75, 0.1 + 0.65 * (cell.minutesParked / maxHeatWeight)),
+          }}
+        />
+      ))}
+      {historyTimeline?.length > 1 && (
+        <Polyline
+          positions={historyTimeline.map((p) => [p.lat, p.lng])}
+          pathOptions={{ color: '#d97706', weight: 3, dashArray: '6 5', opacity: 0.9 }}
+        />
+      )}
+      {historyTimeline?.map((p, i) => (
+        <CircleMarker
+          key={`hist-${i}`}
+          center={[p.lat, p.lng]}
+          radius={7}
+          pathOptions={{ color: '#d97706', fillColor: '#d97706', fillOpacity: 0.9, weight: 2 }}
+        >
+          <Popup>
+            <div className="popup">
+              #{i + 1} · {p.location ?? 'nieznana lokalizacja'}
+              <br />
+              {p.durationMin != null && `postój: ${p.durationMin} min`}
+            </div>
+          </Popup>
+        </CircleMarker>
+      ))}
       {userPosition && (
         <Marker position={[userPosition.lat, userPosition.lng]} icon={userIcon} zIndexOffset={1000} />
       )}
