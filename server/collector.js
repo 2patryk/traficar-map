@@ -1,4 +1,5 @@
 import { migrate } from './db/migrate.js'
+import { ping } from './cronitor.js'
 
 const API_BASE = 'https://fioletowe.live/api/v1'
 const CYCLE_INTERVAL_MS = 2 * 60 * 1000
@@ -274,15 +275,24 @@ async function main() {
 
   const tick = async () => {
     const t0 = Date.now()
+    const series = Date.now().toString(36)
+    await ping('traficar-collector', { state: 'run', series })
     try {
       const { carsSeen, zonesFailed } = await runCycle(zoneIds)
       const durationS = ((Date.now() - t0) / 1000).toFixed(1)
+      await ping('traficar-collector', {
+        state: zonesFailed.length === zoneIds.length ? 'fail' : 'complete',
+        series,
+        metric: [`count:${carsSeen}`, `duration:${durationS}`, `error_count:${zonesFailed.length}`].join(','),
+        message: zonesFailed.length ? `strefy bez danych: ${zonesFailed.join(',')}` : '',
+      })
       console.log(
         `cycle done in ${durationS}s, ${carsSeen} cars, ${zonesFailed.length} zones failed` +
           (zonesFailed.length ? ` [${zonesFailed.join(',')}]` : '')
       )
     } catch (err) {
       console.error('cycle failed', err)
+      await ping('traficar-collector', { state: 'fail', series, message: err.message })
     }
   }
 

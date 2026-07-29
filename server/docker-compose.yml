@@ -34,3 +34,16 @@ services:
     ports:
       - '20137:20137'
     command: node api.js
+
+  nightly:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/app/data
+    environment:
+      DB_PATH: /app/data/traficar.db
+      CRONITOR_API_KEY: ${CRONITOR_API_KEY:-}
+    command: node nightly.js

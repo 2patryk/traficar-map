@@ -1,0 +1,31 @@
+name: Offsite backup
+
+on:
+  schedule:
+    - cron: '30 4 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MIKRUS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.MIKRUS_PORT }} ${{ secrets.MIKRUS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Pull backup files from Mikrus
+        run: |
+          mkdir -p backups
+          rsync -az \
+            -e "ssh -p ${{ secrets.MIKRUS_PORT }} -i ~/.ssh/id_ed25519" \
+            root@${{ secrets.MIKRUS_HOST }}:/opt/traficar/data/backups/ backups/
+
+      - name: Upload as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: traficar-db-backup
+          path: backups/
+          retention-days: 30

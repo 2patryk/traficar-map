@@ -9,7 +9,8 @@
   "scripts": {
     "migrate": "node db/migrate.js",
     "collector": "node collector.js",
-    "api": "node api.js"
+    "api": "node api.js",
+    "nightly": "node nightly.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
