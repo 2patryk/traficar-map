@@ -152,3 +152,10 @@ button {
   --font-display: var(--font-heading);
   --font-body: var(--font-sans);
 }
+
+/* Uchwyt przeciągania sheetu (Drawer) — --muted i --popover to ten sam kolor
+   w trybie ciemnym, więc domyślny bg-muted "łapki" zlewał się z tłem sheetu
+   i był niewidoczny */
+[data-slot="drawer-swipe-handle"]::after {
+  background: var(--border);
+}

@@ -42,8 +42,14 @@ function niceTicks(max: number, count = 4): number[] {
   const norm = rawStep / mag
   const niceNorm = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10
   const step = niceNorm * mag
-  const ticks: number[] = []
-  for (let v = 0; v <= max + step * 0.01; v += step) ticks.push(Math.round(v))
+  // Pętla MUSI dojść do >= max — inaczej ostatni tick wypada poniżej realnych
+  // danych i linia wykresu ucina się nad górną krawędzią (dokładnie ten bug)
+  const ticks: number[] = [0]
+  let v = 0
+  while (v < max) {
+    v += step
+    ticks.push(Math.round(v))
+  }
   return ticks
 }
 
