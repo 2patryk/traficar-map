@@ -10,7 +10,9 @@ import { zoneEntryCandidates, zoneProximity } from './utils/geo'
 import type { LatLng } from './utils/geo'
 import { fetchRouteGeometry, useDrivingRoutes } from './hooks/useDrivingRoutes'
 import type { RouteTarget } from './hooks/useDrivingRoutes'
-import { ZonePicker } from './components/ZonePicker'
+import { AppShell } from './components/AppShell'
+import { Topbar } from './components/Topbar'
+import { MapLayerControls } from './components/MapLayerControls'
 import { CarMap } from './components/CarMap'
 import { CarList } from './components/CarList'
 import { CarHistory } from './components/CarHistory'
@@ -27,56 +29,6 @@ const DISCOUNT_TYPES = ['Relokacja']
 function withDiscountSum(car: Car | RankedCar): Car {
   if ('discountSum' in car && car.discountSum != null) return car
   return { ...car, discountSum: (car.discounts ?? []).reduce((sum, d) => sum + d.amount, 0) } as Car
-}
-
-function RefreshIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function LocationIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" strokeLinecap="round" />
-      <circle cx="12" cy="12" r="6" />
-    </svg>
-  )
-}
-
-function CarsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11M5 11h14M5 11a2 2 0 0 0-2 2v4h2m14-6a2 2 0 0 1 2 2v4h-2m-14 0v2m0-2h14m0 0v2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function RankingIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function StatsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 20V10M12 20V4M20 20v-7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function HeatmapIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 3c3 3 5 5.5 5 8.5A5 5 0 0 1 7 11.5C7 8.5 9 6 12 3z" strokeLinejoin="round" />
-    </svg>
-  )
 }
 
 function App() {
@@ -303,156 +255,103 @@ function App() {
     [focus?.lat, focus?.lng],
   )
 
-  return (
-    <div className="app">
-      <header className="app-header">
-        <div className="brand">
-          <span className="brand-name">
-            <span className="live-dot" />
-            Traficar · Relokacja
-          </span>
-          {lastUpdated && (
-            <span className="brand-sub">aktualizacja {lastUpdated.toLocaleTimeString('pl-PL')}</span>
-          )}
-        </div>
-
-        <div className="header-controls">
-          {view === 'map' && (
-            <span className="car-count-badge" title="Liczba widocznych aut">
-              {cars.length} {effectiveShowAll ? 'aut' : 'z rabatem'}
-            </span>
-          )}
-          <ZonePicker zones={zones} zoneId={zoneId} onChange={setZoneId} />
-          <button
-            type="button"
-            className={`icon-button${view === 'stats' ? ' primary' : ''}`}
-            onClick={() => setView((v) => (v === 'stats' ? 'map' : 'stats'))}
-            title="Statystyki floty"
-          >
-            <StatsIcon />
-            <span className="btn-label">Statystyki</span>
-          </button>
-          {view === 'map' && (
-            <>
-              <button
-                type="button"
-                className={`icon-button${showAll ? ' primary' : ''}`}
-                onClick={() => setShowAll((v) => !v)}
-                title={showAll ? 'Pokaż tylko auta z relokacją' : 'Pokaż wszystkie auta (czas postoju)'}
-              >
-                <CarsIcon />
-                <span className="btn-label">Wszystkie</span>
-              </button>
-              <button
-                type="button"
-                className={`icon-button${base.kind === 'ranking' && !historyLayer ? ' primary' : ''}`}
-                onClick={toggleRanking}
-                disabled={!zoneId}
-                title="Ranking najdłużej stojących aut w strefie"
-              >
-                <RankingIcon />
-                <span className="btn-label">Ranking</span>
-              </button>
-              <button
-                type="button"
-                className={`icon-button${heatmapOn ? ' primary' : ''}`}
-                onClick={() => setHeatmapOn((v) => !v)}
-                disabled={!zoneId}
-                title="Heatmapa długich postojów (30 dni)"
-              >
-                <HeatmapIcon />
-                <span className="btn-label">Heatmapa</span>
-              </button>
-              <button
-                type="button"
-                className={`icon-button${locating ? ' busy' : ''}`}
-                onClick={() => requestLocation({ watch: true })}
-                title="Użyj mojej lokalizacji"
-              >
-                <LocationIcon />
-                <span className="btn-label">Moja lokalizacja</span>
-              </button>
-              <button
-                type="button"
-                className={`icon-button primary${loading ? ' spin' : ''}`}
-                onClick={refresh}
-                disabled={!zoneId || loading}
-                title="Odśwież"
-              >
-                <RefreshIcon />
-                <span className="btn-label">Odśwież</span>
-              </button>
-            </>
-          )}
-        </div>
-      </header>
-
+  const statusStrip = (
+    <>
       {zonesError && <p className="status-strip error">{zonesError}</p>}
       {error && <p className="status-strip error">{error}</p>}
       {denied && (
         <p className="status-strip hint">Brak dostępu do lokalizacji — sortowanie od centrum strefy.</p>
       )}
+    </>
+  )
 
-      {view === 'stats' && (
-        <StatsView zones={zones} zoneId={zoneId} onZoneChange={setZoneId} />
-      )}
-
-      {view === 'map' && zoneId && (
-        <main className="app-main">
-          <CarMap
-            cars={mapCars}
-            center={center}
-            userPosition={position}
-            relocationZone={relocationZone}
-            relocationZoneVersion={relocationZoneVersion}
+  return (
+    <AppShell
+      view={view}
+      showMap={Boolean(zoneId)}
+      topbar={
+        <Topbar
+          zones={zones}
+          zoneId={zoneId}
+          onZoneChange={setZoneId}
+          view={view}
+          onToggleView={() => setView((v) => (v === 'stats' ? 'map' : 'stats'))}
+          showAll={effectiveShowAll}
+          onShowAllChange={setShowAll}
+          carCount={cars.length}
+          lastUpdated={lastUpdated}
+          onRefresh={refresh}
+          refreshing={loading}
+        />
+      }
+      statusStrip={statusStrip}
+      stats={<StatsView zones={zones} zoneId={zoneId} onZoneChange={setZoneId} />}
+      map={
+        <CarMap
+          cars={mapCars}
+          center={center}
+          userPosition={position}
+          relocationZone={relocationZone}
+          relocationZoneVersion={relocationZoneVersion}
+          showAll={effectiveShowAll}
+          zoneDistances={zoneDistances}
+          drivingRoutes={drivingRoutes}
+          payouts={payouts}
+          selectedCar={historyLayer ? null : selectedCar}
+          selectedRoute={historyLayer ? null : selectedRoute}
+          onSelect={(car) => selectCar(car, { toggle: false })}
+          onShowHistory={showHistory}
+          historyTimeline={historyLayer ? historyTimeline : null}
+          heatmapCells={historyLayer ? null : heatmapCells}
+          zoneKey={zoneId}
+        />
+      }
+      mapLayerControls={
+        <MapLayerControls
+          heatmapOn={heatmapOn}
+          onToggleHeatmap={() => setHeatmapOn((v) => !v)}
+          locating={locating}
+          onRequestLocation={() => requestLocation({ watch: true })}
+          disabled={!zoneId}
+        />
+      }
+      panel={
+        historyLayer ? (
+          <CarHistory
+            carId={historyLayer.car.id}
+            regPlate={historyLayer.car.regPlate}
+            onClose={pop}
+            onData={setHistoryTimeline}
+          />
+        ) : base.kind === 'ranking' ? (
+          <LongestParkedPanel
+            zoneId={zoneId}
+            order={rankingOrder}
+            onOrderChange={setRankingOrder}
+            selectedCarId={pinnedCar?.id ?? null}
+            onSelect={(car) => selectCar(car, { toggle: false })}
+            onShowHistory={showHistory}
+            onClose={() => setBase({ kind: 'list' })}
+          />
+        ) : (
+          <CarList
+            cars={cars}
+            origin={origin}
+            loading={loading}
             showAll={effectiveShowAll}
             zoneDistances={zoneDistances}
             drivingRoutes={drivingRoutes}
             payouts={payouts}
-            selectedCar={historyLayer ? null : selectedCar}
-            selectedRoute={historyLayer ? null : selectedRoute}
-            onSelect={(car) => selectCar(car, { toggle: false })}
+            onSelect={selectCar}
             onShowHistory={showHistory}
-            historyTimeline={historyLayer ? historyTimeline : null}
-            heatmapCells={historyLayer ? null : heatmapCells}
-            zoneKey={zoneId}
+            selectedCarId={pinnedCar?.id ?? null}
+            sortBy={listSort}
+            onSortChange={setListSort}
+            onOpenRanking={toggleRanking}
           />
-          {historyLayer ? (
-            <CarHistory
-              carId={historyLayer.car.id}
-              regPlate={historyLayer.car.regPlate}
-              onClose={pop}
-              onData={setHistoryTimeline}
-            />
-          ) : base.kind === 'ranking' ? (
-            <LongestParkedPanel
-              zoneId={zoneId}
-              order={rankingOrder}
-              onOrderChange={setRankingOrder}
-              selectedCarId={pinnedCar?.id ?? null}
-              onSelect={(car) => selectCar(car, { toggle: false })}
-              onShowHistory={showHistory}
-              onClose={() => setBase({ kind: 'list' })}
-            />
-          ) : (
-            <CarList
-              cars={cars}
-              origin={origin}
-              loading={loading}
-              showAll={effectiveShowAll}
-              zoneDistances={zoneDistances}
-              drivingRoutes={drivingRoutes}
-              payouts={payouts}
-              onSelect={selectCar}
-              onShowHistory={showHistory}
-              selectedCarId={pinnedCar?.id ?? null}
-              sortBy={listSort}
-              onSortChange={setListSort}
-            />
-          )}
-        </main>
-      )}
-    </div>
+        )
+      }
+    />
   )
 }
 

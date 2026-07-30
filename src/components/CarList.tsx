@@ -20,6 +20,16 @@ interface CarListProps {
   selectedCarId: number | null
   sortBy: SortId
   onSortChange: (sortBy: SortId) => void
+  onOpenRanking: () => void
+}
+
+function RankingIcon() {
+  return (
+    <svg className="go-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 }
 
 function GoIcon() {
@@ -47,7 +57,7 @@ const SORTS: { id: SortId; label: string; showAllOnly?: boolean }[] = [
   { id: 'stale', label: 'Najdłużej stoi', showAllOnly: true },
 ]
 
-export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, onShowHistory, selectedCarId, sortBy, onSortChange }: CarListProps) {
+export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, onShowHistory, selectedCarId, sortBy, onSortChange, onOpenRanking }: CarListProps) {
   // "Najdłużej stoi" ma sens tylko przy widoku wszystkich aut — poza nim wróć do domyślnego
   const activeSort: SortId = sortBy === 'stale' && !showAll ? 'distance' : sortBy
 
@@ -73,20 +83,6 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
     return [...cars].sort(cmp[activeSort])
   }, [cars, origin, activeSort, zoneDistances, drivingRoutes, payouts])
 
-  if (loading && sorted.length === 0) {
-    return <p className="loading-state">{showAll ? 'Szukam aut…' : 'Szukam aut z rabatem…'}</p>
-  }
-
-  if (sorted.length === 0) {
-    return (
-      <p className="empty-state">
-        {showAll
-          ? 'Brak dostępnych aut w tej strefie.'
-          : 'Brak aut z rabatem Relokacja w tej strefie. Spróbuj innego miasta.'}
-      </p>
-    )
-  }
-
   // Trasa autem gdy już policzona, wcześniej dystans w linii prostej
   const zoneLabel = (car: Car) => {
     const prox = zoneDistances?.get(car.id)
@@ -96,22 +92,51 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
     return route ? `${formatDrive(route)} do strefy` : formatZoneDistance(prox.km)
   }
 
+  const toolbar = (
+    <div className="list-toolbar" role="tablist" aria-label="Sortowanie">
+      {SORTS.filter((s) => !s.showAllOnly || showAll).map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          role="tab"
+          aria-selected={activeSort === s.id}
+          className={`sort-chip${activeSort === s.id ? ' active' : ''}`}
+          onClick={() => onSortChange(s.id)}
+        >
+          {s.label}
+        </button>
+      ))}
+      <button type="button" className="sort-chip inline-flex items-center gap-1" onClick={onOpenRanking}>
+        <RankingIcon /> Ranking
+      </button>
+    </div>
+  )
+
+  if (loading && sorted.length === 0) {
+    return (
+      <div className="list-pane">
+        {toolbar}
+        <p className="loading-state">{showAll ? 'Szukam aut…' : 'Szukam aut z rabatem…'}</p>
+      </div>
+    )
+  }
+
+  if (sorted.length === 0) {
+    return (
+      <div className="list-pane">
+        {toolbar}
+        <p className="empty-state">
+          {showAll
+            ? 'Brak dostępnych aut w tej strefie.'
+            : 'Brak aut z rabatem Relokacja w tej strefie. Spróbuj innego miasta.'}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="list-pane">
-      <div className="list-toolbar" role="tablist" aria-label="Sortowanie">
-        {SORTS.filter((s) => !s.showAllOnly || showAll).map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            role="tab"
-            aria-selected={activeSort === s.id}
-            className={`sort-chip${activeSort === s.id ? ' active' : ''}`}
-            onClick={() => onSortChange(s.id)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      {toolbar}
       <ul className="car-list">
       {sorted.map((car) => (
         <li key={car.id}>

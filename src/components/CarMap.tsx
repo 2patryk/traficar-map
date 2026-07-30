@@ -164,7 +164,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
   }
 
   return (
-    <MapContainer center={center} zoom={zoom} className="car-map">
+    <MapContainer center={center} zoom={zoom} className="car-map h-full w-full">
       <Recenter center={center} zoom={zoom} />
       <FitCity cars={cars} zoneKey={zoneKey} />
       <FitHistory timeline={historyTimeline} />
