@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
-import { formatDrive, formatZoneDistance, googleMapsUrl, haversineDistanceKm } from '../utils/geo'
+import { formatDrive, formatZoneDistance, haversineDistanceKm } from '../utils/geo'
 import type { DrivingRoute, LatLng, ZoneProximity } from '../utils/geo'
-import { formatElapsed } from '../utils/time'
-import { formatPayout } from '../utils/payout'
+import { CarRow } from './CarRow'
 import type { Car } from '../types/api'
 
 type SortId = 'distance' | 'discount' | 'payout' | 'zone' | 'stale'
@@ -16,7 +15,6 @@ interface CarListProps {
   drivingRoutes: Map<number, DrivingRoute> | null
   payouts: Map<number, number> | null
   onSelect?: (car: Car) => void
-  onShowHistory?: (car: Car) => void
   selectedCarId: number | null
   sortBy: SortId
   onSortChange: (sortBy: SortId) => void
@@ -32,23 +30,6 @@ function RankingIcon() {
   )
 }
 
-function GoIcon() {
-  return (
-    <svg className="go-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M7 17L17 7M17 7H8M17 7V16" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function HistoryIcon() {
-  return (
-    <svg className="go-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M3 12a9 9 0 1 0 3-6.7M3 12V6m0 6h6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 const SORTS: { id: SortId; label: string; showAllOnly?: boolean }[] = [
   { id: 'distance', label: 'Najbliżej mnie' },
   { id: 'discount', label: 'Kwota rabatów' },
@@ -57,7 +38,7 @@ const SORTS: { id: SortId; label: string; showAllOnly?: boolean }[] = [
   { id: 'stale', label: 'Najdłużej stoi', showAllOnly: true },
 ]
 
-export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, onShowHistory, selectedCarId, sortBy, onSortChange, onOpenRanking }: CarListProps) {
+export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, selectedCarId, sortBy, onSortChange, onOpenRanking }: CarListProps) {
   // "Najdłużej stoi" ma sens tylko przy widoku wszystkich aut — poza nim wróć do domyślnego
   const activeSort: SortId = sortBy === 'stale' && !showAll ? 'distance' : sortBy
 
@@ -138,62 +119,19 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
     <div className="list-pane">
       {toolbar}
       <ul className="car-list">
-      {sorted.map((car) => (
-        <li key={car.id}>
-          <button
-            type="button"
-            className={`car-row${car.id === selectedCarId ? ' selected' : ''}`}
-            onClick={() => onSelect?.(car)}
-          >
-            <div className="row-line">
-              <span className={showAll && !car.discountSum ? 'chip time' : 'chip'}>
-                {showAll ? formatElapsed(car.parkedSince) : `${car.discountSum} zł`}
-              </span>
-              <span className="plate">{car.regPlate}</span>
-              {origin && (
-                <span className="distance">
-                  {haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng).toFixed(1)} km
-                </span>
-              )}
-              <span
-                className="maps-link"
-                role="link"
-                tabIndex={0}
-                title="Otwórz w Google Maps"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  window.open(googleMapsUrl(car.lat, car.lng), '_blank')
-                }}
-              >
-                <GoIcon />
-              </span>
-              {onShowHistory && (
-                <span
-                  className="maps-link"
-                  role="link"
-                  tabIndex={0}
-                  title="Historia auta"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onShowHistory(car)
-                  }}
-                >
-                  <HistoryIcon />
-                </span>
-              )}
-            </div>
-            <div className="row-line">
-              <span className="location">{car.location}</span>
-              {payouts?.has(car.id) && (
-                <span className={`payout${payouts.get(car.id)! > 0 ? '' : ' negative'}`}>
-                  {formatPayout(payouts.get(car.id)!)}
-                </span>
-              )}
-              {zoneLabel(car) && <span className="zone-route">{zoneLabel(car)}</span>}
-            </div>
-          </button>
-        </li>
-      ))}
+        {sorted.map((car) => (
+          <li key={car.id}>
+            <CarRow
+              car={car}
+              showAll={showAll}
+              payout={payouts?.get(car.id) ?? null}
+              distanceKm={origin ? haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng) : null}
+              zoneLabel={zoneLabel(car)}
+              selected={car.id === selectedCarId}
+              onClick={() => onSelect?.(car)}
+            />
+          </li>
+        ))}
       </ul>
     </div>
   )

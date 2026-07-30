@@ -15,6 +15,7 @@ import { Topbar } from './components/Topbar'
 import { MapLayerControls } from './components/MapLayerControls'
 import { CarMap } from './components/CarMap'
 import { CarList } from './components/CarList'
+import { CarDetail } from './components/CarDetail'
 import { CarHistory } from './components/CarHistory'
 import { LongestParkedPanel } from './components/LongestParkedPanel'
 import { StatsView } from './components/StatsView'
@@ -323,6 +324,15 @@ function App() {
             onClose={pop}
             onData={setHistoryTimeline}
           />
+        ) : top.kind === 'car' ? (
+          <CarDetail
+            car={top.car}
+            payout={payouts?.get(top.car.id) ?? null}
+            route={drivingRoutes?.get(top.car.id) ?? null}
+            proximity={zoneDistances?.get(top.car.id) ?? null}
+            onClose={pop}
+            onShowHistory={() => showHistory(top.car)}
+          />
         ) : base.kind === 'ranking' ? (
           <LongestParkedPanel
             zoneId={zoneId}
@@ -343,7 +353,6 @@ function App() {
             drivingRoutes={drivingRoutes}
             payouts={payouts}
             onSelect={selectCar}
-            onShowHistory={showHistory}
             selectedCarId={pinnedCar?.id ?? null}
             sortBy={listSort}
             onSortChange={setListSort}
