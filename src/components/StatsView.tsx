@@ -27,6 +27,26 @@ function formatBucket(iso: string, days: number) {
     : d.toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit' })
 }
 
+// Etykiety na końcach osi X zawsze z datą — w widoku 24h same godziny
+// pierwszego i ostatniego punktu wychodzą identyczne (dokładnie doba różnicy)
+function formatAxisEdge(iso: string) {
+  return new Date(iso).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+// Ładne okrągłe wartości osi Y (0, step, 2*step, …) zamiast surowego maxa —
+// inaczej siatka ląduje na liczbach typu "137,4"
+function niceTicks(max: number, count = 4): number[] {
+  if (max <= 0) return [0, 1]
+  const rawStep = max / count
+  const mag = 10 ** Math.floor(Math.log10(rawStep))
+  const norm = rawStep / mag
+  const niceNorm = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10
+  const step = niceNorm * mag
+  const ticks: number[] = []
+  for (let v = 0; v <= max + step * 0.01; v += step) ticks.push(Math.round(v))
+  return ticks
+}
+
 function SortChevron({ direction }: { direction: 'asc' | 'desc' | null }) {
   return (
     <svg
@@ -87,13 +107,18 @@ function ZoneChart({ series, days, zoneName }: { series: StatsHistoryPoint[]; da
 
   const W = 640
   const H = 220
-  const PAD = 32
+  const PAD_X = 16
+  const PAD_LEFT = 40
+  const PAD_TOP = 16
+  const PAD_BOTTOM = 28
 
-  const maxVal = Math.max(1, ...series.flatMap((s) => [s.carsAvailable ?? 0, s.carsRelocation ?? 0]))
+  const rawMax = Math.max(1, ...series.flatMap((s) => [s.carsAvailable ?? 0, s.carsRelocation ?? 0]))
+  const ticks = niceTicks(rawMax)
+  const maxVal = ticks[ticks.length - 1]
   const n = series.length
 
-  const xAt = (i: number) => PAD + (n <= 1 ? 0 : (i / (n - 1)) * (W - PAD * 2))
-  const yAt = (v: number) => H - PAD - (v / maxVal) * (H - PAD * 2)
+  const xAt = (i: number) => PAD_LEFT + (n <= 1 ? 0 : (i / (n - 1)) * (W - PAD_LEFT - PAD_X))
+  const yAt = (v: number) => H - PAD_BOTTOM - (v / maxVal) * (H - PAD_BOTTOM - PAD_TOP)
 
   const pathFor = (key: 'carsAvailable' | 'carsRelocation') =>
     series.map((s, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i)} ${yAt(s[key] ?? 0)}`).join(' ')
@@ -149,22 +174,49 @@ function ZoneChart({ series, days, zoneName }: { series: StatsHistoryPoint[]; da
               onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect()
                 const x = ((e.clientX - rect.left) / rect.width) * W
-                const idx = Math.round(((x - PAD) / (W - PAD * 2)) * (n - 1))
+                const idx = Math.round(((x - PAD_LEFT) / (W - PAD_LEFT - PAD_X)) * (n - 1))
                 setHoverIdx(Math.min(n - 1, Math.max(0, idx)))
               }}
               onMouseLeave={() => setHoverIdx(null)}
             >
-              <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="var(--border)" strokeWidth="1" />
+              {ticks.map((t) => (
+                <g key={t}>
+                  <line
+                    x1={PAD_LEFT}
+                    y1={yAt(t)}
+                    x2={W - PAD_X}
+                    y2={yAt(t)}
+                    stroke="var(--border)"
+                    strokeWidth="1"
+                  />
+                  <text x={PAD_LEFT - 8} y={yAt(t)} textAnchor="end" dominantBaseline="middle" fontSize="10" fill="var(--muted-foreground)">
+                    {t}
+                  </text>
+                </g>
+              ))}
               <path d={pathFor('carsAvailable')} fill="none" stroke="var(--chart-available)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d={pathFor('carsRelocation')} fill="none" stroke="var(--chart-relocation)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+              {[0, n - 1].map((i) => (
+                <text
+                  key={i}
+                  x={xAt(i)}
+                  y={H - PAD_BOTTOM + 16}
+                  textAnchor={i === 0 ? 'start' : 'end'}
+                  fontSize="10"
+                  fill="var(--muted-foreground)"
+                >
+                  {formatAxisEdge(series[i].bucket)}
+                </text>
+              ))}
 
               {hoverIdx != null && (
                 <>
                   <line
                     x1={xAt(hoverIdx)}
-                    y1={PAD}
+                    y1={PAD_TOP}
                     x2={xAt(hoverIdx)}
-                    y2={H - PAD}
+                    y2={H - PAD_BOTTOM}
                     stroke="var(--muted-foreground)"
                     strokeWidth="1"
                     strokeDasharray="3 3"
@@ -191,9 +243,7 @@ function ZoneChart({ series, days, zoneName }: { series: StatsHistoryPoint[]; da
 }
 
 export function StatsView({ zones, zoneId, onZoneChange }: StatsViewProps) {
-  // `null` = tylko liczby live (bez zakresu) — sekcja trendu nie odpala
-  // zapytania historycznego, dopóki użytkownik świadomie nie wybierze zakresu
-  const [days, setDays] = useState<number | null>(null)
+  const [days, setDays] = useState(1)
   const [summary, setSummary] = useState<StatsSummary | null>(null)
   const [history, setHistory] = useState<StatsHistoryPoint[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -201,13 +251,13 @@ export function StatsView({ zones, zoneId, onZoneChange }: StatsViewProps) {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   useEffect(() => {
-    fetchStatsSummary(days ?? 7)
+    fetchStatsSummary(days)
       .then(setSummary)
       .catch((err) => setError(err.message))
   }, [days])
 
   useEffect(() => {
-    if (!zoneId || days == null) {
+    if (!zoneId) {
       setHistory(null)
       return
     }
@@ -288,7 +338,7 @@ export function StatsView({ zones, zoneId, onZoneChange }: StatsViewProps) {
           <h3 className="font-heading text-sm font-semibold tracking-wide text-muted-foreground uppercase">
             Trend w czasie
           </h3>
-          <Tabs value={days} onValueChange={(v) => setDays(v as number | null)}>
+          <Tabs value={days} onValueChange={(v) => setDays(v as number)}>
             <TabsList>
               {RANGE_OPTIONS.map((opt) => (
                 <TabsTrigger key={opt.value} value={opt.value}>
@@ -299,11 +349,7 @@ export function StatsView({ zones, zoneId, onZoneChange }: StatsViewProps) {
           </Tabs>
         </div>
 
-        {days == null ? (
-          <p className="empty-state">
-            Wybierz zakres, żeby zobaczyć trend {zoneName ? `dla strefy ${zoneName}` : ''}.
-          </p>
-        ) : history ? (
+        {history ? (
           <ZoneChart series={history} days={days} zoneName={zoneName || 'Wybierz strefę'} />
         ) : (
           <p className="loading-state">Wczytuję…</p>
