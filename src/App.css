@@ -517,43 +517,6 @@ button.nav-button {
   margin: 1.25rem 0 0.5rem;
 }
 
-.stats-table-wrap {
-  overflow-x: auto;
-}
-
-.stats-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.stats-table th {
-  text-align: left;
-  color: var(--text-dim);
-  font-weight: 600;
-  padding: 0.5rem 0.7rem;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-.stats-table td {
-  padding: 0.5rem 0.7rem;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-.stats-table tbody tr {
-  cursor: pointer;
-}
-
-.stats-table tbody tr:hover {
-  background: var(--surface-2);
-}
-
-.stats-table tr.selected-row {
-  background: var(--accent-soft);
-}
-
 .stats-chart-wrap {
   position: relative;
 }

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchStatsHistory, fetchStatsSummary } from '../api'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
 import type { StatsHistoryPoint, StatsSummary, Zone } from '../types/api'
 
 interface StatsViewProps {
@@ -53,32 +56,30 @@ function ZoneChart({ series, days }: { series: StatsHistoryPoint[]; days: number
             <span className="legend-dot relocation" /> Z Relokacją
           </span>
         </div>
-        <button type="button" className="sort-chip" onClick={() => setAsTable((v) => !v)}>
+        <Button type="button" variant="outline" size="sm" onClick={() => setAsTable((v) => !v)}>
           {asTable ? 'Pokaż wykres' : 'Pokaż jako tabelę'}
-        </button>
+        </Button>
       </div>
 
       {asTable ? (
-        <div className="stats-table-wrap">
-          <table className="stats-table">
-            <thead>
-              <tr>
-                <th>Czas</th>
-                <th>Dostępne</th>
-                <th>Z Relokacją</th>
-              </tr>
-            </thead>
-            <tbody>
-              {series.map((s) => (
-                <tr key={s.bucket}>
-                  <td>{formatBucket(s.bucket, days)}</td>
-                  <td>{s.carsAvailable}</td>
-                  <td>{s.carsRelocation}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Czas</TableHead>
+              <TableHead>Dostępne</TableHead>
+              <TableHead>Z Relokacją</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {series.map((s) => (
+              <TableRow key={s.bucket}>
+                <TableCell>{formatBucket(s.bucket, days)}</TableCell>
+                <TableCell>{s.carsAvailable}</TableCell>
+                <TableCell>{s.carsRelocation}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       ) : (
         <svg
           viewBox={`0 0 ${W} ${H}`}
@@ -150,18 +151,15 @@ export function StatsView({ zones, zoneId, onZoneChange }: StatsViewProps) {
     <div className="stats-view">
       <div className="stats-header">
         <h2>Statystyki floty</h2>
-        <div className="list-toolbar">
-          {DAY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`sort-chip${days === opt.value ? ' active' : ''}`}
-              onClick={() => setDays(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={days} onValueChange={(v) => setDays(v as number)}>
+          <TabsList>
+            {DAY_OPTIONS.map((opt) => (
+              <TabsTrigger key={opt.value} value={opt.value}>
+                {opt.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       {error && <p className="status-strip error">{error}</p>}
@@ -171,36 +169,35 @@ export function StatsView({ zones, zoneId, onZoneChange }: StatsViewProps) {
           <p className="history-total">
             Łącznie teraz: {summary.totals.carsAvailable} dostępnych, {summary.totals.carsRelocation} z rabatem Relokacja
           </p>
-          <div className="stats-table-wrap">
-            <table className="stats-table">
-              <thead>
-                <tr>
-                  <th>Strefa</th>
-                  <th>Dostępne</th>
-                  <th>Z Relokacją</th>
-                  <th>Śr. dostępne ({days}d)</th>
-                  <th>Śr. z Relokacją ({days}d)</th>
-                  <th>Suma rabatów teraz</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.zones.map((z) => (
-                  <tr
-                    key={z.zoneId}
-                    className={String(z.zoneId) === String(zoneId) ? 'selected-row' : ''}
-                    onClick={() => onZoneChange(String(z.zoneId))}
-                  >
-                    <td>{z.name}</td>
-                    <td>{z.carsAvailable ?? '—'}</td>
-                    <td>{z.carsRelocation ?? '—'}</td>
-                    <td>{z.avgAvailable ?? '—'}</td>
-                    <td>{z.avgRelocation ?? '—'}</td>
-                    <td>{z.relocationAmountSum ?? 0} zł</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Strefa</TableHead>
+                <TableHead>Dostępne</TableHead>
+                <TableHead>Z Relokacją</TableHead>
+                <TableHead>Śr. dostępne ({days}d)</TableHead>
+                <TableHead>Śr. z Relokacją ({days}d)</TableHead>
+                <TableHead>Suma rabatów teraz</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {summary.zones.map((z) => (
+                <TableRow
+                  key={z.zoneId}
+                  data-selected={String(z.zoneId) === String(zoneId) || undefined}
+                  className="cursor-pointer data-[selected]:bg-primary/10"
+                  onClick={() => onZoneChange(String(z.zoneId))}
+                >
+                  <TableCell>{z.name}</TableCell>
+                  <TableCell>{z.carsAvailable ?? '—'}</TableCell>
+                  <TableCell>{z.carsRelocation ?? '—'}</TableCell>
+                  <TableCell>{z.avgAvailable ?? '—'}</TableCell>
+                  <TableCell>{z.avgRelocation ?? '—'}</TableCell>
+                  <TableCell>{z.relocationAmountSum ?? 0} zł</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </>
       )}
 
