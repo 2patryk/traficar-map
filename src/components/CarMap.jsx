@@ -14,8 +14,11 @@ const ZONE_STYLE = {
 }
 
 function carIcon(car, showAll) {
-  const label = showAll ? formatElapsed(car.parkedSince) : `${car.discountSum} zł`
-  const cls = showAll && !car.discountSum ? 'car-pin time' : 'car-pin'
+  // Bez rabatu "0 zł" nic nie mówi — pokazujemy czas postoju (dotyczy też auta
+  // dorzuconego z rankingu, którego nie ma w przefiltrowanym feedzie)
+  const showTime = showAll || !car.discountSum
+  const label = showTime ? formatElapsed(car.parkedSince) : `${car.discountSum} zł`
+  const cls = showTime && !car.discountSum ? 'car-pin time' : 'car-pin'
   return divIcon({
     className: 'car-pin-wrap',
     html: `<span class="${cls}">${label}</span>`,
@@ -96,6 +99,20 @@ function FitCity({ cars, zoneKey }) {
   return null
 }
 
+// Wejście w historię musi pokazać całą trasę — bez tego mapa zostawała tam,
+// gdzie stała lista, a numerowane postoje mogły być poza kadrem
+function FitHistory({ timeline }) {
+  const map = useMap()
+  const points = timeline?.map((p) => [p.lat, p.lng])
+  useEffect(() => {
+    if (!points?.length) return
+    if (points.length === 1) map.flyTo(points[0], 15, { duration: 0.5 })
+    else map.fitBounds(points, { padding: [50, 50], maxZoom: 15 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- klucz na treści trasy, nie na nowej referencji tablicy z każdego rendera
+  }, [timeline, map])
+  return null
+}
+
 function Recenter({ center, zoom }) {
   const map = useMap()
   useEffect(() => {
@@ -120,6 +137,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
     <MapContainer center={center} zoom={zoom} className="car-map">
       <Recenter center={center} zoom={zoom} />
       <FitCity cars={cars} zoneKey={zoneKey} />
+      <FitHistory timeline={historyTimeline} />
       <PopupSync selectedCarId={selectedCar?.id ?? null} markerRefs={markerRefs} />
       {selectedCar && (
         <FitSelection

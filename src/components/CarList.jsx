@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { formatDrive, formatZoneDistance, googleMapsUrl, haversineDistanceKm } from '../utils/geo.js'
 import { formatElapsed } from '../utils/time.js'
 import { formatPayout } from '../utils/payout.js'
@@ -28,8 +28,7 @@ const SORTS = [
   { id: 'stale', label: 'Najdłużej stoi', showAllOnly: true },
 ]
 
-export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, onShowHistory, selectedCarId }) {
-  const [sortBy, setSortBy] = useState('distance')
+export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, onShowHistory, selectedCarId, sortBy, onSortChange }) {
   // "Najdłużej stoi" ma sens tylko przy widoku wszystkich aut — poza nim wróć do domyślnego
   const activeSort = sortBy === 'stale' && !showAll ? 'distance' : sortBy
 
@@ -88,7 +87,7 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
             role="tab"
             aria-selected={activeSort === s.id}
             className={`sort-chip${activeSort === s.id ? ' active' : ''}`}
-            onClick={() => setSortBy(s.id)}
+            onClick={() => onSortChange(s.id)}
           >
             {s.label}
           </button>

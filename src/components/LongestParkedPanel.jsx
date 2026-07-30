@@ -10,10 +10,18 @@ function BackIcon() {
   )
 }
 
-export function LongestParkedPanel({ zoneId, onSelect, onClose }) {
+function HistoryIcon() {
+  return (
+    <svg className="go-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 12a9 9 0 1 0 3-6.7M3 12V6m0 6h6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function LongestParkedPanel({ zoneId, order, onOrderChange, selectedCarId, onSelect, onShowHistory, onClose }) {
   const [cars, setCars] = useState(null)
   const [error, setError] = useState(null)
-  const [order, setOrder] = useState('desc')
 
   useEffect(() => {
     let cancelled = false
@@ -43,7 +51,7 @@ export function LongestParkedPanel({ zoneId, onSelect, onClose }) {
         <button
           type="button"
           className="sort-toggle"
-          onClick={() => setOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+          onClick={() => onOrderChange(order === 'desc' ? 'asc' : 'desc')}
           title="Zmień kolejność sortowania"
         >
           {order === 'desc' ? 'najdłużej ↓' : 'najkrócej ↑'}
@@ -60,10 +68,28 @@ export function LongestParkedPanel({ zoneId, onSelect, onClose }) {
             const discountSum = (car.discounts ?? []).reduce((sum, d) => sum + d.amount, 0)
             return (
               <li key={car.id}>
-                <button type="button" className="car-row" onClick={() => onSelect(car)}>
+                <button
+                  type="button"
+                  className={`car-row${car.id === selectedCarId ? ' selected' : ''}`}
+                  onClick={() => onSelect(car)}
+                >
                   <div className="row-line">
                     <span className="chip time">#{i + 1} · {formatElapsed(car.parkedSince)}</span>
                     <span className="plate">{car.regPlate}</span>
+                    {onShowHistory && (
+                      <span
+                        className="maps-link"
+                        role="link"
+                        tabIndex={0}
+                        title="Historia auta"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onShowHistory(car)
+                        }}
+                      >
+                        <HistoryIcon />
+                      </span>
+                    )}
                   </div>
                   <div className="row-line">
                     <span className="location">{car.location}</span>

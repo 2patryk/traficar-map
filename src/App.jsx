@@ -18,6 +18,13 @@ import './App.css'
 const DEFAULT_ZONE_NAME = 'Łódź'
 const DISCOUNT_TYPES = ['Relokacja']
 
+// Ranking zwraca auta bez `discountSum` (feed aut je liczy) — pinezka i lista
+// potrzebują tego pola, więc dopełniamy je przy przenoszeniu auta między widokami
+function withDiscountSum(car) {
+  if (car.discountSum != null) return car
+  return { ...car, discountSum: (car.discounts ?? []).reduce((sum, d) => sum + d.amount, 0) }
+}
+
 function RefreshIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -147,9 +154,18 @@ function App() {
 
   // Kliknięte auto: rysujemy jego trasę do strefy na mapie
   const [selectedCarId, setSelectedCarId] = useState(null)
-  const [historyCarId, setHistoryCarId] = useState(null)
+  // Auto wybrane z rankingu może nie być w aktualnym feedzie (filtr "Relokacja"
+  // albo zniknęło z listy) — trzymamy jego dane, żeby pinezka i podgląd działały
+  const [pinnedCar, setPinnedCar] = useState(null)
+  // Historia trzyma obiekt auta, nie id: gdy auto wypadnie z feedu (ktoś je
+  // wynajął), panel nie może zniknąć w trakcie przeglądania
+  const [historyCar, setHistoryCar] = useState(null)
   const [historyTimeline, setHistoryTimeline] = useState(null)
   const [showRanking, setShowRanking] = useState(false)
+  // Stan sortowania podniesiony do App — panele się odmontowują przy przełączaniu
+  // widoków, a wybrane sortowanie musi przetrwać powrót do panelu
+  const [listSort, setListSort] = useState('distance')
+  const [rankingOrder, setRankingOrder] = useState('desc')
   const [selectedRoute, setSelectedRoute] = useState(null)
   const [view, setView] = useState('map')
   const [heatmapOn, setHeatmapOn] = useState(false)
@@ -169,23 +185,47 @@ function App() {
     }
   }, [heatmapOn, zoneId])
 
+  // Zmiana strefy unieważnia wszystko, co dotyczy aut z poprzedniej strefy
   useEffect(() => {
     setSelectedCarId(null)
     setSelectedRoute(null)
+    setPinnedCar(null)
+    setHistoryCar(null)
   }, [zoneId])
 
   useEffect(() => {
-    if (!historyCarId) setHistoryTimeline(null)
-  }, [historyCarId])
+    if (!historyCar) setHistoryTimeline(null)
+  }, [historyCar])
+
+  // Escape wychodzi z nakładek w kolejności otwarcia: historia, ranking, zaznaczenie
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      if (historyCar) setHistoryCar(null)
+      else if (showRanking) setShowRanking(false)
+      else {
+        setSelectedCarId(null)
+        setPinnedCar(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [historyCar, showRanking])
 
   const selectedCar = useMemo(
-    () => cars.find((c) => c.id === selectedCarId) ?? null,
-    [cars, selectedCarId],
+    () =>
+      cars.find((c) => c.id === selectedCarId) ??
+      (pinnedCar?.id === selectedCarId ? pinnedCar : null),
+    [cars, selectedCarId, pinnedCar],
   )
-  const historyCar = useMemo(
-    () => cars.find((c) => c.id === historyCarId) ?? null,
-    [cars, historyCarId],
-  )
+
+  // Auto z rankingu dokładamy do pinezek, dopóki nie ma go w feedzie —
+  // inaczej klik w ranking niczego nie zaznacza przy filtrze "Relokacja"
+  const mapCars = useMemo(() => {
+    if (historyCar) return []
+    if (!pinnedCar || cars.some((c) => c.id === pinnedCar.id)) return cars
+    return [...cars, pinnedCar]
+  }, [cars, pinnedCar, historyCar])
 
   useEffect(() => {
     // Zawsze czyścimy od razu — stara trasa nie może wisieć, gdy trwa fetch
@@ -212,6 +252,16 @@ function App() {
   // popup, który Leaflet właśnie otworzył tym samym kliknięciem.
   const selectCar = (car, { toggle = true } = {}) => {
     setSelectedCarId((id) => (toggle && id === car.id ? null : car.id))
+  }
+
+  // Historia otwiera się z listy, rankingu i mapy — zawsze z pełnym obiektem
+  const showHistory = (car) => {
+    const full = withDiscountSum(car)
+    setHistoryCar(full)
+    // Przypinamy też do mapy: po zamknięciu historii kadr wraca na to auto,
+    // nawet gdy filtr "Relokacja" go nie zawiera
+    setPinnedCar(full)
+    setSelectedCarId(car.id)
   }
 
   const zone = useMemo(() => zones.find((z) => String(z.id) === String(zoneId)), [zones, zoneId])
@@ -282,9 +332,9 @@ function App() {
               </button>
               <button
                 type="button"
-                className={`icon-button${showRanking ? ' primary' : ''}`}
+                className={`icon-button${showRanking && !historyCar ? ' primary' : ''}`}
                 onClick={() => {
-                  setHistoryCarId(null)
+                  setHistoryCar(null)
                   setShowRanking((v) => !v)
                 }}
                 disabled={!zoneId}
@@ -340,7 +390,7 @@ function App() {
       {view === 'map' && zoneId && (
         <main className="app-main">
           <CarMap
-            cars={historyCar ? [] : cars}
+            cars={mapCars}
             center={center}
             userPosition={position}
             relocationZone={relocationZone}
@@ -352,25 +402,31 @@ function App() {
             selectedCar={historyCar ? null : selectedCar}
             selectedRoute={historyCar ? null : selectedRoute}
             onSelect={(car) => selectCar(car, { toggle: false })}
-            onShowHistory={(car) => setHistoryCarId(car.id)}
-            historyTimeline={historyCarId ? historyTimeline : null}
-            heatmapCells={heatmapCells}
+            onShowHistory={showHistory}
+            historyTimeline={historyCar ? historyTimeline : null}
+            heatmapCells={historyCar ? null : heatmapCells}
             zoneKey={zoneId}
           />
           {historyCar ? (
             <CarHistory
               carId={historyCar.id}
               regPlate={historyCar.regPlate}
-              onClose={() => setHistoryCarId(null)}
+              onClose={() => setHistoryCar(null)}
               onData={setHistoryTimeline}
             />
           ) : showRanking ? (
             <LongestParkedPanel
               zoneId={zoneId}
+              order={rankingOrder}
+              onOrderChange={setRankingOrder}
+              selectedCarId={selectedCarId}
               onSelect={(car) => {
-                selectCar(car, { toggle: false })
-                setShowRanking(false)
+                // Panel zostaje otwarty: ranking to lista do przeglądania,
+                // a zamknięcie po pierwszym kliknięciu wymuszało powrót za każdym razem
+                setPinnedCar(withDiscountSum(car))
+                setSelectedCarId(car.id)
               }}
+              onShowHistory={showHistory}
               onClose={() => setShowRanking(false)}
             />
           ) : (
@@ -383,8 +439,10 @@ function App() {
               drivingRoutes={drivingRoutes}
               payouts={payouts}
               onSelect={selectCar}
-              onShowHistory={(car) => setHistoryCarId(car.id)}
+              onShowHistory={showHistory}
               selectedCarId={selectedCarId}
+              sortBy={listSort}
+              onSortChange={setListSort}
             />
           )}
         </main>
