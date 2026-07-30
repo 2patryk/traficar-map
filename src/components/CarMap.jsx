@@ -24,6 +24,16 @@ function carIcon(car, showAll) {
   })
 }
 
+// Kropka historii z numerem kolejności przemieszczenia (1 = najstarszy postój)
+function historyIcon(index) {
+  return divIcon({
+    className: 'history-pin-wrap',
+    html: `<span class="history-pin">${index}</span>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  })
+}
+
 const userIcon = divIcon({
   className: 'user-pin-wrap',
   html: '<span class="user-dot-pulse"></span><span class="user-dot"></span>',
@@ -147,11 +157,11 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
         />
       )}
       {historyTimeline?.map((p, i) => (
-        <CircleMarker
+        <Marker
           key={`hist-${i}`}
-          center={[p.lat, p.lng]}
-          radius={7}
-          pathOptions={{ color: '#d97706', fillColor: '#d97706', fillOpacity: 0.9, weight: 2 }}
+          position={[p.lat, p.lng]}
+          icon={historyIcon(i + 1)}
+          zIndexOffset={500}
         >
           <Popup>
             <div className="popup">
@@ -160,7 +170,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
               {p.durationMin != null && `postój: ${p.durationMin} min`}
             </div>
           </Popup>
-        </CircleMarker>
+        </Marker>
       ))}
       {userPosition && (
         <Marker position={[userPosition.lat, userPosition.lng]} icon={userIcon} zIndexOffset={1000} />

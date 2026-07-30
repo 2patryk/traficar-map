@@ -61,8 +61,10 @@ export async function fetchCarHistory(carId, days = 30) {
   return res.json()
 }
 
-export async function fetchLongestParked(zoneId, limit = 20) {
-  const res = await fetch(`/api/stats/longest-parked?zoneId=${zoneId}&limit=${limit}`)
+export async function fetchLongestParked(zoneId, limit = 100, order = 'desc') {
+  const res = await fetch(
+    `/api/stats/longest-parked?zoneId=${zoneId}&limit=${limit}&order=${order}`,
+  )
   if (!res.ok) throw new Error(`Nie udało się pobrać rankingu (${res.status})`)
   const { cars } = await res.json()
   return cars

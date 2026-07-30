@@ -13,13 +13,14 @@ function BackIcon() {
 export function LongestParkedPanel({ zoneId, onSelect, onClose }) {
   const [cars, setCars] = useState(null)
   const [error, setError] = useState(null)
+  const [order, setOrder] = useState('desc')
 
   useEffect(() => {
     let cancelled = false
     setCars(null)
     setError(null)
 
-    fetchLongestParked(zoneId)
+    fetchLongestParked(zoneId, 100, order)
       .then((result) => {
         if (!cancelled) setCars(result)
       })
@@ -30,7 +31,7 @@ export function LongestParkedPanel({ zoneId, onSelect, onClose }) {
     return () => {
       cancelled = true
     }
-  }, [zoneId])
+  }, [zoneId, order])
 
   return (
     <div className="list-pane">
@@ -38,7 +39,15 @@ export function LongestParkedPanel({ zoneId, onSelect, onClose }) {
         <button type="button" className="icon-button" onClick={onClose} title="Wróć do listy">
           <BackIcon />
         </button>
-        <strong>Najdłużej stoją</strong>
+        <strong>{order === 'desc' ? 'Najdłużej stoją' : 'Najkrócej stoją'}</strong>
+        <button
+          type="button"
+          className="sort-toggle"
+          onClick={() => setOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+          title="Zmień kolejność sortowania"
+        >
+          {order === 'desc' ? 'najdłużej ↓' : 'najkrócej ↑'}
+        </button>
       </div>
 
       {error && <p className="status-strip error">{error}</p>}
