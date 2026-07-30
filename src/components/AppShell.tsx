@@ -11,12 +11,25 @@ interface AppShellProps {
   map: ReactNode
   mapLayerControls: ReactNode
   panel: ReactNode
+  sheetSnapPoint: number
+  onSheetSnapPointChange: (snapPoint: number) => void
 }
 
 // Topbar zostaje w normalnym przepływie (wspólny dla map/stats), mapa
 // wypełnia resztę viewportu. Sheet: Drawer na mobile, stały panel na desktopie
 // (dawny .list-pane) — dokładnie ten sam `panel` w obu przypadkach.
-export function AppShell({ topbar, statusStrip, view, showMap, stats, map, mapLayerControls, panel }: AppShellProps) {
+export function AppShell({
+  topbar,
+  statusStrip,
+  view,
+  showMap,
+  stats,
+  map,
+  mapLayerControls,
+  panel,
+  sheetSnapPoint,
+  onSheetSnapPointChange,
+}: AppShellProps) {
   const isMobile = useIsMobile()
 
   return (
@@ -34,7 +47,9 @@ export function AppShell({ topbar, statusStrip, view, showMap, stats, map, mapLa
           <div className="absolute inset-0 z-0">{map}</div>
           {mapLayerControls}
           {isMobile ? (
-            <CarSheet>{panel}</CarSheet>
+            <CarSheet snapPoint={sheetSnapPoint} onSnapPointChange={onSheetSnapPointChange}>
+              {panel}
+            </CarSheet>
           ) : (
             <aside className="absolute inset-y-0 right-0 z-20 flex w-[380px] flex-col border-l border-border bg-background">
               {panel}

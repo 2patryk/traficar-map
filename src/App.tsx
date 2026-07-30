@@ -6,6 +6,7 @@ import { useGeolocation } from './hooks/useGeolocation'
 import { useRelocationZone } from './hooks/useRelocationZone'
 import { usePanelStack } from './hooks/usePanelStack'
 import { useFilters } from './hooks/useFilters'
+import { useIsMobile } from './hooks/useIsMobile'
 import { ZONE_CENTER_OVERRIDES, zoneCenter } from './utils/zoneCenters'
 import { zoneEntryCandidates, zoneProximity, haversineDistanceKm } from './utils/geo'
 import type { LatLng } from './utils/geo'
@@ -155,6 +156,19 @@ function App() {
   const [selectedRoute, setSelectedRoute] = useState<{ carId: number; coords: number[][] } | null>(null)
   const [view, setView] = useState<'map' | 'stats'>('map')
   const [heatmapOn, setHeatmapOn] = useState(false)
+
+  // Mapa jest pełnoekranowa, sheet/panel boczny tylko na niej LEŻĄ — bez tego
+  // fitBounds/flyTo centrują punkty tak, jakby nic ich nie zasłaniało, i
+  // najważniejsze auto ląduje pod sheetem (mobile) albo pod panelem (desktop)
+  const isMobile = useIsMobile()
+  const [sheetSnapPoint, setSheetSnapPoint] = useState(0.5)
+  const mapPadding = useMemo(
+    () =>
+      isMobile
+        ? { top: 0, right: 0, bottom: Math.round(window.innerHeight * sheetSnapPoint), left: 0 }
+        : { top: 0, right: 380, bottom: 0, left: 0 },
+    [isMobile, sheetSnapPoint],
+  )
   const [heatmapCells, setHeatmapCells] = useState<HeatmapCell[] | null>(null)
 
   useEffect(() => {
@@ -302,6 +316,8 @@ function App() {
     <AppShell
       view={view}
       showMap={Boolean(zoneId)}
+      sheetSnapPoint={sheetSnapPoint}
+      onSheetSnapPointChange={setSheetSnapPoint}
       topbar={
         <Topbar
           zones={zones}
@@ -341,6 +357,7 @@ function App() {
           heatmapCells={historyLayer ? null : heatmapCells}
           zoneKey={zoneId}
           onManualDrag={stopFollow}
+          mapPadding={mapPadding}
         />
       }
       mapLayerControls={

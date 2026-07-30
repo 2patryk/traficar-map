@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { CircleMarker, GeoJSON, MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
-import { divIcon, type Marker as LeafletMarker } from 'leaflet'
+import { divIcon, type Map as LeafletMap, type Marker as LeafletMarker } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { formatDrive, formatZoneDistance, googleMapsUrl } from '../utils/geo'
 import type { DrivingRoute, LatLng, ZoneProximity } from '../utils/geo'
@@ -13,6 +13,35 @@ type MapCar = Car | RankedCar
 interface SelectedRoute {
   carId: number
   coords: number[][]
+}
+
+// Ile px z każdej strony mapy zasłania UI (sheet na dole/mobile, panel z
+// prawej/desktop) — fitBounds/flyTo muszą to uwzględnić, inaczej centrują na
+// obszar, którego użytkownik nie widzi.
+export interface MapPadding {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+const ZERO_PADDING: MapPadding = { top: 0, right: 0, bottom: 0, left: 0 }
+
+// flyTo centruje na geometryczny środek KONTENERA, nie widocznego obszaru —
+// przesuwamy cel o połowę zasłoniętej przestrzeni w stronę zasłonięcia, żeby
+// punkt wylądował na środku tego, co faktycznie widać
+function flyToVisible(map: LeafletMap, latlng: [number, number], zoom: number, padding: MapPadding, duration = 0.5) {
+  const point = map.project(latlng, zoom)
+  const shifted = point.add([(padding.right - padding.left) / 2, (padding.bottom - padding.top) / 2])
+  map.flyTo(map.unproject(shifted, zoom), zoom, { duration })
+}
+
+function fitBoundsVisible(map: LeafletMap, bounds: [number, number][], padding: MapPadding, extra: number, maxZoom?: number) {
+  map.fitBounds(bounds, {
+    paddingTopLeft: [padding.left + extra, padding.top + extra],
+    paddingBottomRight: [padding.right + extra, padding.bottom + extra],
+    maxZoom,
+  })
 }
 
 const ZONE_STYLE = {
@@ -72,17 +101,17 @@ const ROUTE_STYLE = {
 // Po wyborze auta dopasuj widok: do trasy gdy jest (lub nadejdzie za moment),
 // inaczej do samego auta. `expectRoute` zapobiega dwustopniowemu zoomowi:
 // nie robimy flyTo do auta, skoro zaraz i tak przyjdzie fitBounds trasy.
-function FitSelection({ route, car, expectRoute }: { route: SelectedRoute | null; car: MapCar | null; expectRoute: boolean }) {
+function FitSelection({ route, car, expectRoute, mapPadding }: { route: SelectedRoute | null; car: MapCar | null; expectRoute: boolean; mapPadding: MapPadding }) {
   const map = useMap()
   useEffect(() => {
     if (route?.coords?.length && route.carId === car?.id) {
-      map.fitBounds(route.coords as [number, number][], { padding: [50, 50] })
+      fitBoundsVisible(map, route.coords as [number, number][], mapPadding, 50)
     } else if (car && !expectRoute) {
-      map.flyTo([car.lat, car.lng], 15, { duration: 0.5 })
+      flyToVisible(map, [car.lat, car.lng], 15, mapPadding)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- klucz na id, nie referencjach:
     // feed odświeża się co 60 s i tworzy nowe obiekty, a mapa nie może wtedy skakać
-  }, [route?.carId, car?.id, expectRoute, map])
+  }, [route?.carId, car?.id, expectRoute, map, mapPadding])
   return null
 }
 
@@ -102,40 +131,43 @@ function PopupSync({ selectedCarId, markerRefs }: { selectedCarId: number | null
 // wszystkie auta — zamiast trzymać stały zoom, który przy dużych miastach
 // pokazywał tylko fragment. Działa raz na zmianę strefy (ref po zoneKey),
 // kolejne odświeżenia feedu (co 60 s) nie ruszają już kamery.
-function FitCity({ cars, zoneKey }: { cars: MapCar[]; zoneKey: string }) {
+function FitCity({ cars, zoneKey, mapPadding }: { cars: MapCar[]; zoneKey: string; mapPadding: MapPadding }) {
   const map = useMap()
   const fitForRef = useRef<string | null>(null)
   useEffect(() => {
     if (fitForRef.current === zoneKey) return
     if (!cars.length) return
-    map.fitBounds(
+    fitBoundsVisible(
+      map,
       cars.map((c) => [c.lat, c.lng] as [number, number]),
-      { padding: [40, 40], maxZoom: 14 },
+      mapPadding,
+      40,
+      14,
     )
     fitForRef.current = zoneKey
-  }, [cars, zoneKey, map])
+  }, [cars, zoneKey, map, mapPadding])
   return null
 }
 
 // Wejście w historię musi pokazać całą trasę — bez tego mapa zostawała tam,
 // gdzie stała lista, a numerowane postoje mogły być poza kadrem
-function FitHistory({ timeline }: { timeline: HistoryTimelineParkingEntry[] | null }) {
+function FitHistory({ timeline, mapPadding }: { timeline: HistoryTimelineParkingEntry[] | null; mapPadding: MapPadding }) {
   const map = useMap()
   const points = timeline?.map((p) => [p.lat, p.lng] as [number, number])
   useEffect(() => {
     if (!points?.length) return
-    if (points.length === 1) map.flyTo(points[0], 15, { duration: 0.5 })
-    else map.fitBounds(points, { padding: [50, 50], maxZoom: 15 })
+    if (points.length === 1) flyToVisible(map, points[0], 15, mapPadding)
+    else fitBoundsVisible(map, points, mapPadding, 50, 15)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- klucz na treści trasy, nie na nowej referencji tablicy z każdego rendera
-  }, [timeline, map])
+  }, [timeline, map, mapPadding])
   return null
 }
 
-function Recenter({ center, zoom }: { center: [number, number]; zoom: number }) {
+function Recenter({ center, zoom, mapPadding }: { center: [number, number]; zoom: number; mapPadding: MapPadding }) {
   const map = useMap()
   useEffect(() => {
-    map.flyTo(center, zoom, { duration: 0.6 })
-  }, [center, zoom, map])
+    flyToVisible(map, center, zoom, mapPadding, 0.6)
+  }, [center, zoom, map, mapPadding])
   return null
 }
 
@@ -165,9 +197,10 @@ interface CarMapProps {
   heatmapCells: HeatmapCell[] | null
   zoneKey: string
   onManualDrag?: () => void
+  mapPadding?: MapPadding
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey, onManualDrag }: CarMapProps) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey, onManualDrag, mapPadding = ZERO_PADDING }: CarMapProps) {
   const markerRefs = useRef(new Map<number, LeafletMarker>())
   const maxHeatWeight = heatmapCells?.length ? Math.max(...heatmapCells.map((c) => c.minutesParked)) : 0
 
@@ -181,16 +214,17 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
 
   return (
     <MapContainer center={center} zoom={zoom} className="car-map h-full w-full">
-      <Recenter center={center} zoom={zoom} />
+      <Recenter center={center} zoom={zoom} mapPadding={mapPadding} />
       {onManualDrag && <FollowGuard onManualDrag={onManualDrag} />}
-      <FitCity cars={cars} zoneKey={zoneKey} />
-      <FitHistory timeline={historyTimeline} />
+      <FitCity cars={cars} zoneKey={zoneKey} mapPadding={mapPadding} />
+      <FitHistory timeline={historyTimeline} mapPadding={mapPadding} />
       <PopupSync selectedCarId={selectedCar?.id ?? null} markerRefs={markerRefs} />
       {selectedCar && (
         <FitSelection
           route={selectedRoute}
           car={selectedCar}
           expectRoute={Boolean(zoneDistances?.get(selectedCar.id)?.point)}
+          mapPadding={mapPadding}
         />
       )}
       {selectedRoute && selectedRoute.carId === selectedCar?.id && (
