@@ -94,7 +94,7 @@ function Recenter({ center, zoom }) {
   return null
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, debugCandidates, bestEntry, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey }) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey }) {
   const markerRefs = useRef(new Map())
   const maxHeatWeight = heatmapCells?.length ? Math.max(...heatmapCells.map((c) => c.minutesParked)) : 0
 
@@ -120,22 +120,6 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
       )}
       {selectedRoute && selectedRoute.carId === selectedCar?.id && (
         <Polyline positions={selectedRoute.coords} pathOptions={ROUTE_STYLE} />
-      )}
-      {/* Debug: próbkowani kandydaci wjazdu (pomarańczowe), zwycięzca (zielony) */}
-      {debugCandidates?.map((p, i) => (
-        <CircleMarker
-          key={`cand-${i}`}
-          center={[p.lat, p.lng]}
-          radius={5}
-          pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.7, weight: 1 }}
-        />
-      ))}
-      {bestEntry && (
-        <CircleMarker
-          center={[bestEntry.lat, bestEntry.lng]}
-          radius={8}
-          pathOptions={{ color: '#16a34a', fillColor: '#22c55e', fillOpacity: 0.9, weight: 2 }}
-        />
       )}
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

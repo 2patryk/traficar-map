@@ -210,15 +210,6 @@ function App() {
 
   // Lista: ponowny klik odznacza. Pinezka: zawsze zaznacza — toggle zamykałby
   // popup, który Leaflet właśnie otworzył tym samym kliknięciem.
-  // Debug: kandydaci próbkowani dla zaznaczonego auta + zwycięski wjazd
-  const debugCandidates = useMemo(() => {
-    if (!selectedCar || !relocationZone) return null
-    const prox = zoneDistances?.get(selectedCar.id)
-    if (!prox?.point) return null
-    return zoneEntryCandidates(selectedCar.lat, selectedCar.lng, relocationZone)
-  }, [selectedCar, zoneDistances, relocationZone])
-  const bestEntry = drivingRoutes?.get(selectedCar?.id)?.to ?? null
-
   const selectCar = (car, { toggle = true } = {}) => {
     setSelectedCarId((id) => (toggle && id === car.id ? null : car.id))
   }
@@ -349,7 +340,7 @@ function App() {
       {view === 'map' && zoneId && (
         <main className="app-main">
           <CarMap
-            cars={cars}
+            cars={historyCar ? [] : cars}
             center={center}
             userPosition={position}
             relocationZone={relocationZone}
@@ -358,10 +349,8 @@ function App() {
             zoneDistances={zoneDistances}
             drivingRoutes={drivingRoutes}
             payouts={payouts}
-            selectedCar={selectedCar}
-            selectedRoute={selectedRoute}
-            debugCandidates={debugCandidates}
-            bestEntry={bestEntry}
+            selectedCar={historyCar ? null : selectedCar}
+            selectedRoute={historyCar ? null : selectedRoute}
             onSelect={(car) => selectCar(car, { toggle: false })}
             onShowHistory={(car) => setHistoryCarId(car.id)}
             historyTimeline={historyCarId ? historyTimeline : null}
