@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ZonePicker } from './ZonePicker'
+import { FiltersSheet } from './FiltersSheet'
+import type { Filters } from '../hooks/useFilters'
 import type { Zone } from '../types/api'
 
 function RefreshIcon({ className }: { className?: string }) {
@@ -31,6 +33,9 @@ interface TopbarProps {
   lastUpdated: Date | null
   onRefresh: () => void
   refreshing: boolean
+  filters: Filters
+  onFiltersChange: (filters: Filters) => void
+  filtersActiveCount: number
 }
 
 export function Topbar({
@@ -45,6 +50,9 @@ export function Topbar({
   lastUpdated,
   onRefresh,
   refreshing,
+  filters,
+  onFiltersChange,
+  filtersActiveCount,
 }: TopbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background/85 px-3 py-2 backdrop-blur-md sm:px-4">
@@ -81,6 +89,10 @@ export function Topbar({
             Wszystkie
           </ToggleGroupItem>
         </ToggleGroup>
+      )}
+
+      {view === 'map' && (
+        <FiltersSheet filters={filters} onChange={onFiltersChange} activeCount={filtersActiveCount} />
       )}
 
       <Button

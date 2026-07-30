@@ -54,21 +54,13 @@ export async function fetchCars(
     for (const type of discountTypes) params.append('discountType', type)
   }
 
-  const [res, models] = await Promise.all([
-    fetch(`/api/cars?${params.toString()}`),
-    fetchCarModels(),
-  ])
+  const res = await fetch(`/api/cars?${params.toString()}`)
   if (!res.ok) throw new Error(`Nie udało się pobrać aut (${res.status})`)
   const { cars } = await res.json()
 
-  // Tylko osobowe (type 1) — bez dostawczych i skuterów. Nieznany model
-  // zostaje, żeby nowy typ w API nie znikał po cichu z mapy.
-  const isPassenger = (car: Car) => {
-    const type = models.get(car.modelId)?.type
-    return type == null || type === 1
-  }
-
-  return cars.filter(isPassenger).map((car: Car) => ({
+  // Typ auta (osobowe/dostawcze/skuter) filtrujemy po stronie klienta
+  // (FiltersSheet), więc tu zwracamy cały feed bez filtrowania.
+  return cars.map((car: Car) => ({
     ...car,
     discountSum: (car.discounts ?? []).reduce((sum, d) => sum + d.amount, 0),
   }))

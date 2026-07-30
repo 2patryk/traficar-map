@@ -5,8 +5,9 @@ import { useCars } from './hooks/useCars'
 import { useGeolocation } from './hooks/useGeolocation'
 import { useRelocationZone } from './hooks/useRelocationZone'
 import { usePanelStack } from './hooks/usePanelStack'
+import { useFilters } from './hooks/useFilters'
 import { ZONE_CENTER_OVERRIDES, zoneCenter } from './utils/zoneCenters'
-import { zoneEntryCandidates, zoneProximity } from './utils/geo'
+import { zoneEntryCandidates, zoneProximity, haversineDistanceKm } from './utils/geo'
 import type { LatLng } from './utils/geo'
 import { fetchRouteGeometry, useDrivingRoutes } from './hooks/useDrivingRoutes'
 import type { RouteTarget } from './hooks/useDrivingRoutes'
@@ -58,6 +59,30 @@ function App() {
   const { position, fix, denied, loading: locating, follow, toggleFollow, stopFollow } = useGeolocation()
   const { shape: relocationZone, version: relocationZoneVersion } = useRelocationZone(zoneId)
   const [zoneOn, setZoneOn] = useState(true)
+  const { filters, setFilters, activeCount: filtersActiveCount } = useFilters()
+
+  const [models, setModels] = useState<Map<number, { name: string; type: number }> | null>(null)
+  useEffect(() => {
+    fetchCarModels().then(setModels)
+  }, [])
+
+  const zone = useMemo(() => zones.find((z) => String(z.id) === String(zoneId)), [zones, zoneId])
+  const origin = position ?? zoneCenter(zone)
+
+  // Filtry klienckie (FiltersSheet) — typ auta domyślnie tylko osobowe (tak
+  // jak dawniej filtrował sam serwer), reszta opcjonalna. Stosowane przed
+  // liczeniem tras/payoutów, żeby nie tracić OSRM-owych zapytań na odfiltrowane auta.
+  const visibleCars = useMemo(() => {
+    return cars.filter((car) => {
+      const type = models?.get(car.modelId)?.type
+      if (type != null && !filters.carTypes.includes(type as 1 | 2 | 6)) return false
+      if (filters.maxDistanceKm != null && origin) {
+        const km = haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng)
+        if (km > filters.maxDistanceKm) return false
+      }
+      return true
+    })
+  }, [cars, models, filters, origin])
 
   // Stos warstw sheetu: baza (list/ranking) + opcjonalnie car/history na wierzchu.
   // Wybór auta (`car`) i historia (`history`) korzystają z pełnego obiektu
@@ -75,20 +100,20 @@ function App() {
   const zoneDistances = useMemo(() => {
     if (!relocationZone) return null
     const byId = new Map()
-    for (const car of cars) {
+    for (const car of visibleCars) {
       if (car.discounts?.some((d) => d.name === 'Relokacja')) {
         byId.set(car.id, zoneProximity(car.lat, car.lng, relocationZone))
       }
     }
     return byId
-  }, [cars, relocationZone])
+  }, [visibleCars, relocationZone])
 
   // Trasa autem (OSRM) do najszybszego punktu wjazdu do strefy — kandydaci
   // z granicy, wybór przez OSRM table w hooku
   const routeTargets = useMemo(() => {
     if (!zoneDistances || !relocationZone) return []
     const targets: RouteTarget[] = []
-    for (const car of cars) {
+    for (const car of visibleCars) {
       const prox = zoneDistances.get(car.id)
       if (prox?.point) {
         const candidates = zoneEntryCandidates(car.lat, car.lng, relocationZone)
@@ -98,27 +123,30 @@ function App() {
       }
     }
     return targets
-  }, [cars, zoneDistances, relocationZone])
+  }, [visibleCars, zoneDistances, relocationZone])
   const drivingRoutes = useDrivingRoutes(routeTargets, relocationZone)
-
-  const [models, setModels] = useState<Map<number, { name: string; type: number }> | null>(null)
-  useEffect(() => {
-    fetchCarModels().then(setModels)
-  }, [])
 
   // Szacowany zwrot za przestawienie: 30 zł premii minus koszt przejazdu
   // wg dystansu OSRM (auta w strefie i bez trasy — brak wartości)
-  const payouts = useMemo(() => {
+  const payoutsRaw = useMemo(() => {
     if (!models) return null
     const byId = new Map<number, number>()
-    for (const car of cars) {
+    for (const car of visibleCars) {
       if (!zoneDistances?.get(car.id)?.point) continue
       const route = drivingRoutes?.get(car.id)
       if (!route) continue
       byId.set(car.id, relocationPayout(models.get(car.modelId)?.name, route.km))
     }
     return byId
-  }, [cars, models, zoneDistances, drivingRoutes])
+  }, [visibleCars, models, zoneDistances, drivingRoutes])
+
+  // "Tylko opłacalne" odfiltrowuje listę/mapę już po policzeniu payoutów —
+  // nie ma sensu przeliczać tras inaczej z tego powodu
+  const filteredCars = useMemo(() => {
+    if (!filters.payoutOnly) return visibleCars
+    return visibleCars.filter((car) => (payoutsRaw?.get(car.id) ?? -Infinity) > 0)
+  }, [visibleCars, filters.payoutOnly, payoutsRaw])
+  const payouts = payoutsRaw
 
   const [historyTimeline, setHistoryTimeline] = useState<HistoryTimelineParkingEntry[] | null>(null)
   // Stan sortowań i filtrów zostaje poza stosem — musi przetrwać nawigację między warstwami
@@ -178,9 +206,9 @@ function App() {
   // inaczej klik w ranking niczego nie zaznacza przy filtrze "Relokacja"
   const mapCars = useMemo(() => {
     if (historyLayer) return []
-    if (!pinnedCar || cars.some((c) => c.id === pinnedCar.id)) return cars
-    return [...cars, pinnedCar]
-  }, [cars, pinnedCar, historyLayer])
+    if (!pinnedCar || filteredCars.some((c) => c.id === pinnedCar.id)) return filteredCars
+    return [...filteredCars, pinnedCar]
+  }, [filteredCars, pinnedCar, historyLayer])
 
   useEffect(() => {
     // Zawsze czyścimy od razu — stara trasa nie może wisieć, gdy trwa fetch
@@ -230,9 +258,6 @@ function App() {
   const toggleRanking = () => {
     setBase({ kind: base.kind === 'ranking' ? 'list' : 'ranking' })
   }
-
-  const zone = useMemo(() => zones.find((z) => String(z.id) === String(zoneId)), [zones, zoneId])
-  const origin = position ?? zoneCenter(zone)
 
   // The map's camera follows the selected zone or an explicit location request —
   // it must NOT be driven by `origin` directly, since once geolocation succeeds
@@ -286,10 +311,13 @@ function App() {
           onToggleView={() => setView((v) => (v === 'stats' ? 'map' : 'stats'))}
           showAll={effectiveShowAll}
           onShowAllChange={setShowAll}
-          carCount={cars.length}
+          carCount={filteredCars.length}
           lastUpdated={lastUpdated}
           onRefresh={refresh}
           refreshing={loading}
+          filters={filters}
+          onFiltersChange={setFilters}
+          filtersActiveCount={filtersActiveCount}
         />
       }
       statusStrip={statusStrip}
@@ -356,7 +384,7 @@ function App() {
           />
         ) : (
           <CarList
-            cars={cars}
+            cars={filteredCars}
             origin={origin}
             loading={loading}
             showAll={effectiveShowAll}
