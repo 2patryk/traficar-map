@@ -3,7 +3,7 @@ import { fetchLongestParked } from '../api'
 import { formatElapsed } from '../utils/time'
 import type { RankedCar } from '../types/api'
 
-interface LongestParkedPanelProps {
+interface RankingViewProps {
   zoneId: string
   order: 'asc' | 'desc'
   onOrderChange: (order: 'asc' | 'desc') => void
@@ -30,7 +30,7 @@ function HistoryIcon() {
   )
 }
 
-export function LongestParkedPanel({ zoneId, order, onOrderChange, selectedCarId, onSelect, onShowHistory, onClose }: LongestParkedPanelProps) {
+export function RankingView({ zoneId, order, onOrderChange, selectedCarId, onSelect, onShowHistory, onClose }: RankingViewProps) {
   const [cars, setCars] = useState<RankedCar[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 

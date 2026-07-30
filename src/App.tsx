@@ -17,8 +17,8 @@ import { MapLayerControls } from './components/MapLayerControls'
 import { CarMap } from './components/CarMap'
 import { CarList } from './components/CarList'
 import { CarDetail } from './components/CarDetail'
-import { CarHistory } from './components/CarHistory'
-import { LongestParkedPanel } from './components/LongestParkedPanel'
+import { HistoryView } from './components/HistoryView'
+import { RankingView } from './components/RankingView'
 import { StatsView } from './components/StatsView'
 import type { Car, HeatmapCell, HistoryTimelineParkingEntry, RankedCar, Zone } from './types/api'
 import './App.css'
@@ -357,7 +357,7 @@ function App() {
       }
       panel={
         historyLayer ? (
-          <CarHistory
+          <HistoryView
             carId={historyLayer.car.id}
             regPlate={historyLayer.car.regPlate}
             onClose={pop}
@@ -373,7 +373,7 @@ function App() {
             onShowHistory={() => showHistory(top.car)}
           />
         ) : base.kind === 'ranking' ? (
-          <LongestParkedPanel
+          <RankingView
             zoneId={zoneId}
             order={rankingOrder}
             onOrderChange={setRankingOrder}

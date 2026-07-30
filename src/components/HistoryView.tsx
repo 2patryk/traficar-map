@@ -3,7 +3,7 @@ import { fetchCarHistory } from '../api'
 import { formatDurationMin } from '../utils/time'
 import type { CarHistoryResponse, HistoryTimelineParkingEntry } from '../types/api'
 
-interface CarHistoryProps {
+interface HistoryViewProps {
   carId: number
   regPlate: string
   onClose: () => void
@@ -27,7 +27,7 @@ function formatWhen(iso: string) {
   })
 }
 
-export function CarHistory({ carId, regPlate, onClose, onData }: CarHistoryProps) {
+export function HistoryView({ carId, regPlate, onClose, onData }: HistoryViewProps) {
   const [data, setData] = useState<CarHistoryResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
