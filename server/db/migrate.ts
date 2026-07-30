@@ -7,14 +7,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'traficar.db')
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations')
 
-export function openDb() {
+export function openDb(): Database.Database {
   const db = new Database(DB_PATH)
   db.pragma('journal_mode = WAL')
   db.pragma('synchronous = NORMAL')
   return db
 }
 
-export function migrate(db = openDb()) {
+export function migrate(db: Database.Database = openDb()): Database.Database {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       filename   TEXT PRIMARY KEY,
@@ -23,7 +23,10 @@ export function migrate(db = openDb()) {
   `)
 
   const applied = new Set(
-    db.prepare('SELECT filename FROM schema_migrations').all().map((row) => row.filename)
+    db
+      .prepare('SELECT filename FROM schema_migrations')
+      .all()
+      .map((row) => (row as { filename: string }).filename),
   )
 
   const files = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()
@@ -35,7 +38,7 @@ export function migrate(db = openDb()) {
       db.exec(sql)
       db.prepare('INSERT INTO schema_migrations (filename, applied_at) VALUES (?, ?)').run(
         file,
-        new Date().toISOString()
+        new Date().toISOString(),
       )
     })()
     console.log(`applied migration: ${file}`)

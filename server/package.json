@@ -7,13 +7,24 @@
     "node": ">=24"
   },
   "scripts": {
-    "migrate": "node db/migrate.js",
-    "collector": "node collector.js",
-    "api": "node api.js",
-    "nightly": "node nightly.js"
+    "build": "tsc && cp -r migrations dist/migrations",
+    "migrate": "node dist/db/migrate.js",
+    "collector": "node dist/collector.js",
+    "api": "node dist/api.js",
+    "nightly": "node dist/nightly.js",
+    "dev:migrate": "tsx db/migrate.ts",
+    "dev:collector": "tsx watch collector.ts",
+    "dev:api": "tsx watch api.ts",
+    "dev:nightly": "tsx nightly.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
     "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
   }
 }

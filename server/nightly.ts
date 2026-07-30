@@ -17,7 +17,9 @@ const GONE_AFTER_HOURS = 48
 const BACKUP_KEEP_DAYS = 14
 const RUN_HOUR_UTC = 3
 
-const db = openDb()
+// `as any`: better-sqlite3 types every row `unknown` without a generic per
+// prepared statement — not worth an interface per query here (see tsconfig).
+const db = openDb() as any
 
 function isoDaysAgo(days) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
@@ -37,7 +39,7 @@ function markGoneCars() {
 
 function applyRetention() {
   const cutoff = isoDaysAgo(RETENTION_DAYS)
-  const changes = {}
+  const changes: Record<string, number> = {}
   changes.trips = db.prepare('DELETE FROM trips WHERE departed_at < ?').run(cutoff).changes
   changes.discountSpans = db
     .prepare("DELETE FROM discount_spans WHERE started_at < ? AND ended_at IS NOT NULL")

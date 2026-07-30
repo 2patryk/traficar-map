@@ -14,7 +14,9 @@ const MOVE_THRESHOLD_M = 120
 const GAP_THRESHOLD_MIN = 10
 const FETCH_TIMEOUT_MS = 15_000
 
-const db = migrate()
+// `as any`: better-sqlite3 types every row `unknown` without a generic per
+// prepared statement — not worth an interface per query here (see tsconfig).
+const db = migrate() as any
 
 function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6_371_000
@@ -27,7 +29,7 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
-async function fetchJson(path) {
+async function fetchJson(path: string): Promise<any> {
   const res = await fetch(`${API_BASE}${path}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
   if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`)
   return res.json()
@@ -120,8 +122,8 @@ function applyDiscountDiff(carId, parkingId, discounts, now) {
 }
 
 function processZone(zoneId, apiCars, now, boundaryTime) {
-  const openParkings = new Map(
-    statements.openParkingsForZone.all(zoneId).map((p) => [p.car_id, p])
+  const openParkings = new Map<number, any>(
+    statements.openParkingsForZone.all(zoneId).map((p: any) => [p.car_id, p]),
   )
   const seenCarIds = new Set()
 
@@ -236,7 +238,7 @@ async function runCycle(zoneIds) {
       const boundaryTime = lastGood
         ? {
             time: lastGood.finished_at,
-            uncertain: now - new Date(lastGood.finished_at) > GAP_THRESHOLD_MIN * 60 * 1000,
+            uncertain: now.getTime() - new Date(lastGood.finished_at).getTime() > GAP_THRESHOLD_MIN * 60 * 1000,
           }
         : { time: now.toISOString(), uncertain: false }
 

@@ -1,5 +1,14 @@
 import Fastify from 'fastify'
 import { openDb } from './db/migrate.js'
+import type {
+  Car,
+  CarHistoryResponse,
+  HealthResponse,
+  HeatmapCell,
+  RankedCar,
+  StatsHistoryResponse,
+  StatsSummary,
+} from './contract.js'
 
 process.on('unhandledRejection', (err) => {
   console.error('unhandled rejection (ignored)', err)
@@ -8,7 +17,10 @@ process.on('unhandledRejection', (err) => {
 const PORT = Number(process.env.PORT) || 3000
 const STALE_AFTER_MS = 15 * 60 * 1000
 
-const db = openDb()
+// `as any`: better-sqlite3 types every row `unknown` without a generic per
+// prepared statement — not worth an interface per query for an internal API
+// layer. Same rationale as tsconfig's `strict: false`.
+const db = openDb() as any
 const fastify = Fastify({ logger: true })
 
 fastify.addHook('onSend', async (_req, reply, payload) => {
@@ -114,7 +126,7 @@ const statements = {
 }
 
 fastify.get('/api/cars', async (request, reply) => {
-  const { zoneId, discountType } = request.query
+  const { zoneId, discountType } = request.query as any
   if (!zoneId) {
     reply.code(400)
     return { error: 'zoneId is required' }
@@ -131,18 +143,18 @@ fastify.get('/api/cars', async (request, reply) => {
     ? cars.filter((car) => car.discounts.some((d) => types.includes(d.name)))
     : cars
 
-  return { cars: filtered }
+  return { cars: filtered } satisfies { cars: Car[] }
 })
 
 fastify.get('/api/cars/:id/history', async (request, reply) => {
-  const carId = Number(request.params.id)
+  const carId = Number((request.params as any).id)
   const car = statements.carMeta.get(carId)
   if (!car) {
     reply.code(404)
     return { error: 'car not found' }
   }
 
-  const days = Math.min(90, Math.max(1, Number(request.query.days) || 30))
+  const days = Math.min(90, Math.max(1, Number((request.query as any).days) || 30))
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
   const now = Date.now()
 
@@ -166,44 +178,44 @@ fastify.get('/api/cars/:id/history', async (request, reply) => {
   const timeline = [...parkings, ...trips].sort((a, b) => Date.parse(b.from) - Date.parse(a.from))
   const totalKm = trips.reduce((sum, t) => sum + (t.km ?? 0), 0)
 
-  return { car, days, totalKm, timeline }
+  return { car, days, totalKm, timeline } satisfies CarHistoryResponse
 })
 
 fastify.get('/api/stats/longest-parked', async (request, reply) => {
-  const { zoneId } = request.query
+  const { zoneId } = request.query as any
   if (!zoneId) {
     reply.code(400)
     return { error: 'zoneId is required' }
   }
 
-  const limit = Math.min(100, Math.max(1, Number(request.query.limit) || 20))
+  const limit = Math.min(100, Math.max(1, Number((request.query as any).limit) || 20))
   // `order=asc` = najkrócej stojące (najświeższe postoje) — sortujemy w SQL,
   // bo odwracanie top-N po stronie klienta dałoby tylko najkrótsze z najdłuższych
   const statement =
-    request.query.order === 'asc' ? statements.shortestParked : statements.longestParked
+    (request.query as any).order === 'asc' ? statements.shortestParked : statements.longestParked
   const cars = statement.all(Number(zoneId), limit).map((car) => ({
     ...car,
     discounts: statements.discountsForCar.all(car.id),
   }))
 
-  return { cars }
+  return { cars } satisfies { cars: RankedCar[] }
 })
 
 fastify.get('/api/stats/history', async (request, reply) => {
-  const { zoneId } = request.query
+  const { zoneId } = request.query as any
   if (!zoneId) {
     reply.code(400)
     return { error: 'zoneId is required' }
   }
-  const days = Math.min(90, Math.max(1, Number(request.query.days) || 7))
+  const days = Math.min(90, Math.max(1, Number((request.query as any).days) || 7))
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
   const series = statements.statsHistory.all(Number(zoneId), since)
-  return { zoneId: Number(zoneId), days, series }
+  return { zoneId: Number(zoneId), days, series } satisfies StatsHistoryResponse
 })
 
 fastify.get('/api/stats/summary', async (request) => {
-  const days = Math.min(90, Math.max(1, Number(request.query.days) || 7))
+  const days = Math.min(90, Math.max(1, Number((request.query as any).days) || 7))
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
   const zones = statements.zones.all().map((zone) => {
@@ -231,20 +243,20 @@ fastify.get('/api/stats/summary', async (request) => {
     { carsAvailable: 0, carsRelocation: 0 }
   )
 
-  return { days, totals, zones }
+  return { days, totals, zones } satisfies StatsSummary
 })
 
 fastify.get('/api/stats/heatmap', async (request, reply) => {
-  const { zoneId } = request.query
+  const { zoneId } = request.query as any
   if (!zoneId) {
     reply.code(400)
     return { error: 'zoneId is required' }
   }
-  const days = Math.min(90, Math.max(1, Number(request.query.days) || 30))
+  const days = Math.min(90, Math.max(1, Number((request.query as any).days) || 30))
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
   const cells = statements.heatmapCells.all(Number(zoneId), since)
-  return { zoneId: Number(zoneId), days, cells }
+  return { zoneId: Number(zoneId), days, cells } satisfies { zoneId: number; days: number; cells: HeatmapCell[] }
 })
 
 fastify.get('/api/health', async (request, reply) => {
@@ -266,7 +278,7 @@ fastify.get('/api/health', async (request, reply) => {
 
   const stale = perZone.some((z) => z.stale)
   if (stale) reply.code(500)
-  return { stale, zones: perZone }
+  return { stale, zones: perZone } satisfies HealthResponse
 })
 
 fastify.listen({ port: PORT, host: '0.0.0.0' }, (err) => {
