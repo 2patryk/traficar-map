@@ -10,7 +10,7 @@ process.on('unhandledRejection', (err) => {
 
 const API_BASE = 'https://fioletowe.live/api/v1'
 const CYCLE_INTERVAL_MS = 2 * 60 * 1000
-const MOVE_THRESHOLD_M = 75
+const MOVE_THRESHOLD_M = 120
 const GAP_THRESHOLD_MIN = 10
 const FETCH_TIMEOUT_MS = 15_000
 
@@ -303,8 +303,22 @@ async function main() {
     }
   }
 
-  await tick()
-  setInterval(tick, CYCLE_INTERVAL_MS)
+  let running = false
+  const guardedTick = async () => {
+    if (running) {
+      console.warn('previous cycle still running, skipping this tick')
+      return
+    }
+    running = true
+    try {
+      await tick()
+    } finally {
+      running = false
+    }
+  }
+
+  await guardedTick()
+  setInterval(guardedTick, CYCLE_INTERVAL_MS)
 }
 
 main()

@@ -24,9 +24,16 @@ jobs:
       - name: Rsync server/ to Mikrus
         run: |
           rsync -az --delete \
-            --exclude node_modules --exclude data \
+            --exclude node_modules --exclude data --exclude .env \
             -e "ssh -p ${{ secrets.MIKRUS_PORT }} -i ~/.ssh/id_ed25519" \
             server/ root@${{ secrets.MIKRUS_HOST }}:/opt/traficar/
+
+      - name: Write .env on server
+        run: |
+          ssh -p ${{ secrets.MIKRUS_PORT }} -i ~/.ssh/id_ed25519 root@${{ secrets.MIKRUS_HOST }} \
+            "cat > /opt/traficar/.env && chmod 600 /opt/traficar/.env" <<EOF
+          CRONITOR_API_KEY=${{ secrets.CRONITOR_API_KEY }}
+          EOF
 
       - name: Rebuild and restart containers
         run: |
