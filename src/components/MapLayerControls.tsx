@@ -8,6 +8,14 @@ function HeatmapIcon() {
   )
 }
 
+function ZoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-5">
+      <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function LocationIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-5">
@@ -20,14 +28,25 @@ function LocationIcon() {
 interface MapLayerControlsProps {
   heatmapOn: boolean
   onToggleHeatmap: () => void
+  zoneOn: boolean
+  onToggleZone: () => void
+  follow: boolean
+  onToggleFollow: () => void
   locating: boolean
-  onRequestLocation: () => void
   disabled: boolean
 }
 
 // Pionowa kolumna floatujących przycisków nad mapą, nad sheetem (peek).
-// Docelowo (etap 6) dojdzie strefa relokacji jako przełącznik warstwy.
-export function MapLayerControls({ heatmapOn, onToggleHeatmap, locating, onRequestLocation, disabled }: MapLayerControlsProps) {
+export function MapLayerControls({
+  heatmapOn,
+  onToggleHeatmap,
+  zoneOn,
+  onToggleZone,
+  follow,
+  onToggleFollow,
+  locating,
+  disabled,
+}: MapLayerControlsProps) {
   return (
     <div className="pointer-events-auto absolute right-3 bottom-[max(14rem,16dvh)] z-20 flex flex-col gap-2 md:right-[calc(380px+0.75rem)] md:bottom-3">
       <Button
@@ -44,10 +63,21 @@ export function MapLayerControls({ heatmapOn, onToggleHeatmap, locating, onReque
       <Button
         type="button"
         size="icon"
-        variant="secondary"
+        variant={zoneOn ? 'default' : 'secondary'}
+        className="size-11 rounded-full shadow-lg"
+        onClick={onToggleZone}
+        disabled={disabled}
+        title="Strefa relokacji"
+      >
+        <ZoneIcon />
+      </Button>
+      <Button
+        type="button"
+        size="icon"
+        variant={follow ? 'default' : 'secondary'}
         className={`size-11 rounded-full shadow-lg${locating ? ' animate-pulse' : ''}`}
-        onClick={onRequestLocation}
-        title="Użyj mojej lokalizacji"
+        onClick={onToggleFollow}
+        title="Śledź moją pozycję"
       >
         <LocationIcon />
       </Button>

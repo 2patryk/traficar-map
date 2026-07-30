@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { CircleMarker, GeoJSON, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
+import { CircleMarker, GeoJSON, MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import { divIcon, type Marker as LeafletMarker } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { formatDrive, formatZoneDistance, googleMapsUrl } from '../utils/geo'
@@ -47,12 +47,20 @@ function historyIcon(index: number) {
   })
 }
 
-const userIcon = divIcon({
-  className: 'user-pin-wrap',
-  html: '<span class="user-dot-pulse"></span><span class="user-dot"></span>',
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
-})
+// Strzałka kierunku tylko gdy przeglądarka podaje heading (zwykle w ruchu) —
+// bez niej sama kropka, bo losowo obrócony stożek myliłby bardziej niż pomagał
+function userIcon(heading: number | null) {
+  const arrow =
+    heading != null
+      ? `<span class="user-heading" style="transform: translate(-50%, -50%) rotate(${heading}deg)"></span>`
+      : ''
+  return divIcon({
+    className: 'user-pin-wrap',
+    html: `<span class="user-dot-pulse"></span><span class="user-dot"></span>${arrow}`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  })
+}
 
 const ROUTE_STYLE = {
   color: '#7c3aed',
@@ -131,11 +139,18 @@ function Recenter({ center, zoom }: { center: [number, number]; zoom: number }) 
   return null
 }
 
+// Ręczne przesunięcie mapy wyłącza "śledź mnie" — inaczej kamera wracałaby
+// pod użytkownika mimo że sam odsunął widok, żeby coś sprawdzić
+function FollowGuard({ onManualDrag }: { onManualDrag: () => void }) {
+  useMapEvents({ dragstart: onManualDrag })
+  return null
+}
+
 interface CarMapProps {
   cars: MapCar[]
   center: [number, number]
   zoom?: number
-  userPosition: LatLng | null
+  userPosition: (LatLng & { heading: number | null }) | null
   relocationZone: ZoneShape | null
   relocationZoneVersion: number
   showAll: boolean
@@ -149,9 +164,10 @@ interface CarMapProps {
   historyTimeline: HistoryTimelineParkingEntry[] | null
   heatmapCells: HeatmapCell[] | null
   zoneKey: string
+  onManualDrag?: () => void
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey }: CarMapProps) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey, onManualDrag }: CarMapProps) {
   const markerRefs = useRef(new Map<number, LeafletMarker>())
   const maxHeatWeight = heatmapCells?.length ? Math.max(...heatmapCells.map((c) => c.minutesParked)) : 0
 
@@ -166,6 +182,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
   return (
     <MapContainer center={center} zoom={zoom} className="car-map h-full w-full">
       <Recenter center={center} zoom={zoom} />
+      {onManualDrag && <FollowGuard onManualDrag={onManualDrag} />}
       <FitCity cars={cars} zoneKey={zoneKey} />
       <FitHistory timeline={historyTimeline} />
       <PopupSync selectedCarId={selectedCar?.id ?? null} markerRefs={markerRefs} />
@@ -221,7 +238,11 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
         </Marker>
       ))}
       {userPosition && (
-        <Marker position={[userPosition.lat, userPosition.lng]} icon={userIcon} zIndexOffset={1000} />
+        <Marker
+          position={[userPosition.lat, userPosition.lng]}
+          icon={userIcon(userPosition.heading)}
+          zIndexOffset={1000}
+        />
       )}
       {cars.map((car) => (
         <Marker

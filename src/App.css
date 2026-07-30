@@ -338,6 +338,18 @@
   animation: user-pulse 2.4s ease-out infinite;
 }
 
+/* Stożek kierunku — rotacja (rotate(Ndeg)) dochodzi inline z heading GPS */
+.user-heading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  clip-path: polygon(50% 0%, 68% 55%, 50% 42%, 32% 55%);
+  background: #4285f4;
+  pointer-events: none;
+}
+
 @keyframes user-pulse {
   0% {
     transform: translate(-50%, -50%) scale(0.6);

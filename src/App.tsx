@@ -55,8 +55,9 @@ function App() {
   // Renderujemy auta w trybie, w którym je pobrano — po przełączeniu stare
   // dane zostają na ekranie we właściwej formie, aż dojedzie nowy fetch.
   const effectiveShowAll = carsShowAll ?? showAll
-  const { position, fix, denied, loading: locating, request: requestLocation } = useGeolocation()
+  const { position, fix, denied, loading: locating, follow, toggleFollow, stopFollow } = useGeolocation()
   const { shape: relocationZone, version: relocationZoneVersion } = useRelocationZone(zoneId)
+  const [zoneOn, setZoneOn] = useState(true)
 
   // Stos warstw sheetu: baza (list/ranking) + opcjonalnie car/history na wierzchu.
   // Wybór auta (`car`) i historia (`history`) korzystają z pełnego obiektu
@@ -249,6 +250,12 @@ function App() {
     if (fix) setFocus(fix)
   }, [fix])
 
+  // "Śledź mnie": w trybie follow kamera jedzie za KAŻDĄ aktualizacją watcha,
+  // nie tylko za jawnym fix — wyłącza się przy ręcznym przesunięciu mapy
+  useEffect(() => {
+    if (follow && position) setFocus(position)
+  }, [follow, position])
+
   const defaultCenter = ZONE_CENTER_OVERRIDES[DEFAULT_ZONE_NAME]
   const center = useMemo(
     (): [number, number] => (focus ? [focus.lat, focus.lng] : [defaultCenter.lat, defaultCenter.lng]),
@@ -292,7 +299,7 @@ function App() {
           cars={mapCars}
           center={center}
           userPosition={position}
-          relocationZone={relocationZone}
+          relocationZone={zoneOn ? relocationZone : null}
           relocationZoneVersion={relocationZoneVersion}
           showAll={effectiveShowAll}
           zoneDistances={zoneDistances}
@@ -305,14 +312,18 @@ function App() {
           historyTimeline={historyLayer ? historyTimeline : null}
           heatmapCells={historyLayer ? null : heatmapCells}
           zoneKey={zoneId}
+          onManualDrag={stopFollow}
         />
       }
       mapLayerControls={
         <MapLayerControls
           heatmapOn={heatmapOn}
           onToggleHeatmap={() => setHeatmapOn((v) => !v)}
+          zoneOn={zoneOn}
+          onToggleZone={() => setZoneOn((v) => !v)}
+          follow={follow}
+          onToggleFollow={toggleFollow}
           locating={locating}
-          onRequestLocation={() => requestLocation({ watch: true })}
           disabled={!zoneId}
         />
       }
