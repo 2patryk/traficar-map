@@ -15,9 +15,9 @@ export function ZonePicker({ zones, zoneId, onChange }: ZonePickerProps) {
           {(value: string | null) => zones.find((z) => String(z.id) === value)?.name ?? 'Wybierz miasto…'}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent alignItemWithTrigger={false} className="min-w-40 rounded-xl border border-border p-1">
         {zones.map((zone) => (
-          <SelectItem key={zone.id} value={String(zone.id)}>
+          <SelectItem key={zone.id} value={String(zone.id)} className="rounded-lg py-2">
             {zone.name}
           </SelectItem>
         ))}

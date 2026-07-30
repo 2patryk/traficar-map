@@ -28,7 +28,10 @@ export function AppShell({ topbar, statusStrip, view, showMap, stats, map, mapLa
 
       {view === 'map' && showMap && (
         <div className="relative min-h-0 flex-1">
-          <div className="absolute inset-0">{map}</div>
+          {/* z-0 (nie auto) zamyka wewnętrzne z-indexy Leaflet (kontrolki zoom,
+              atrybucja idą do 1000) we własnym stacking contexcie — inaczej
+              przebijały się nad panelem bocznym i sheetem */}
+          <div className="absolute inset-0 z-0">{map}</div>
           {mapLayerControls}
           {isMobile ? (
             <CarSheet>{panel}</CarSheet>
