@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react'
-import { fetchLongestParked } from '../api.js'
-import { formatElapsed } from '../utils/time.js'
+import { fetchLongestParked } from '../api'
+import { formatElapsed } from '../utils/time'
+import type { RankedCar } from '../types/api'
+
+interface LongestParkedPanelProps {
+  zoneId: string
+  order: 'asc' | 'desc'
+  onOrderChange: (order: 'asc' | 'desc') => void
+  selectedCarId: number | null
+  onSelect: (car: RankedCar) => void
+  onShowHistory?: (car: RankedCar) => void
+  onClose: () => void
+}
 
 function BackIcon() {
   return (
@@ -19,9 +30,9 @@ function HistoryIcon() {
   )
 }
 
-export function LongestParkedPanel({ zoneId, order, onOrderChange, selectedCarId, onSelect, onShowHistory, onClose }) {
-  const [cars, setCars] = useState(null)
-  const [error, setError] = useState(null)
+export function LongestParkedPanel({ zoneId, order, onOrderChange, selectedCarId, onSelect, onShowHistory, onClose }: LongestParkedPanelProps) {
+  const [cars, setCars] = useState<RankedCar[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false

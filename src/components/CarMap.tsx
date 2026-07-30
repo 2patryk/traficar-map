@@ -1,10 +1,19 @@
 import { useEffect, useRef } from 'react'
 import { CircleMarker, GeoJSON, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
-import { divIcon } from 'leaflet'
+import { divIcon, type Marker as LeafletMarker } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { formatDrive, formatZoneDistance, googleMapsUrl } from '../utils/geo.js'
-import { formatElapsed, formatElapsedExact } from '../utils/time.js'
-import { formatPayout } from '../utils/payout.js'
+import { formatDrive, formatZoneDistance, googleMapsUrl } from '../utils/geo'
+import type { DrivingRoute, LatLng, ZoneProximity } from '../utils/geo'
+import { formatElapsed, formatElapsedExact } from '../utils/time'
+import { formatPayout } from '../utils/payout'
+import type { Car, HeatmapCell, HistoryTimelineParkingEntry, RankedCar, ZoneShape } from '../types/api'
+
+type MapCar = Car | RankedCar
+
+interface SelectedRoute {
+  carId: number
+  coords: number[][]
+}
 
 const ZONE_STYLE = {
   color: '#a78bfa',
@@ -13,12 +22,13 @@ const ZONE_STYLE = {
   fillOpacity: 0.32,
 }
 
-function carIcon(car, showAll) {
+function carIcon(car: MapCar, showAll: boolean) {
   // Bez rabatu "0 zł" nic nie mówi — pokazujemy czas postoju (dotyczy też auta
   // dorzuconego z rankingu, którego nie ma w przefiltrowanym feedzie)
-  const showTime = showAll || !car.discountSum
-  const label = showTime ? formatElapsed(car.parkedSince) : `${car.discountSum} zł`
-  const cls = showTime && !car.discountSum ? 'car-pin time' : 'car-pin'
+  const discountSum = 'discountSum' in car ? car.discountSum : undefined
+  const showTime = showAll || !discountSum
+  const label = showTime ? formatElapsed(car.parkedSince) : `${discountSum} zł`
+  const cls = showTime && !discountSum ? 'car-pin time' : 'car-pin'
   return divIcon({
     className: 'car-pin-wrap',
     html: `<span class="${cls}">${label}</span>`,
@@ -28,7 +38,7 @@ function carIcon(car, showAll) {
 }
 
 // Kropka historii z numerem kolejności przemieszczenia (1 = najstarszy postój)
-function historyIcon(index) {
+function historyIcon(index: number) {
   return divIcon({
     className: 'history-pin-wrap',
     html: `<span class="history-pin">${index}</span>`,
@@ -54,11 +64,11 @@ const ROUTE_STYLE = {
 // Po wyborze auta dopasuj widok: do trasy gdy jest (lub nadejdzie za moment),
 // inaczej do samego auta. `expectRoute` zapobiega dwustopniowemu zoomowi:
 // nie robimy flyTo do auta, skoro zaraz i tak przyjdzie fitBounds trasy.
-function FitSelection({ route, car, expectRoute }) {
+function FitSelection({ route, car, expectRoute }: { route: SelectedRoute | null; car: MapCar | null; expectRoute: boolean }) {
   const map = useMap()
   useEffect(() => {
     if (route?.coords?.length && route.carId === car?.id) {
-      map.fitBounds(route.coords, { padding: [50, 50] })
+      map.fitBounds(route.coords as [number, number][], { padding: [50, 50] })
     } else if (car && !expectRoute) {
       map.flyTo([car.lat, car.lng], 15, { duration: 0.5 })
     }
@@ -71,7 +81,7 @@ function FitSelection({ route, car, expectRoute }) {
 // Zamyka popupy nieaktualnych markerów przy zmianie zaznaczenia. Popup otwiera
 // wyłącznie klik w pinezkę (natywnie Leaflet) — wybór z listy tylko zaznacza;
 // popup klikniętej wcześniej pinezki nie może wisieć ze starymi danymi.
-function PopupSync({ selectedCarId, markerRefs }) {
+function PopupSync({ selectedCarId, markerRefs }: { selectedCarId: number | null; markerRefs: React.RefObject<Map<number, LeafletMarker>> }) {
   useEffect(() => {
     for (const [id, marker] of markerRefs.current) {
       if (id !== selectedCarId && marker.isPopupOpen()) marker.closePopup()
@@ -84,14 +94,14 @@ function PopupSync({ selectedCarId, markerRefs }) {
 // wszystkie auta — zamiast trzymać stały zoom, który przy dużych miastach
 // pokazywał tylko fragment. Działa raz na zmianę strefy (ref po zoneKey),
 // kolejne odświeżenia feedu (co 60 s) nie ruszają już kamery.
-function FitCity({ cars, zoneKey }) {
+function FitCity({ cars, zoneKey }: { cars: MapCar[]; zoneKey: string }) {
   const map = useMap()
-  const fitForRef = useRef(null)
+  const fitForRef = useRef<string | null>(null)
   useEffect(() => {
     if (fitForRef.current === zoneKey) return
     if (!cars.length) return
     map.fitBounds(
-      cars.map((c) => [c.lat, c.lng]),
+      cars.map((c) => [c.lat, c.lng] as [number, number]),
       { padding: [40, 40], maxZoom: 14 },
     )
     fitForRef.current = zoneKey
@@ -101,9 +111,9 @@ function FitCity({ cars, zoneKey }) {
 
 // Wejście w historię musi pokazać całą trasę — bez tego mapa zostawała tam,
 // gdzie stała lista, a numerowane postoje mogły być poza kadrem
-function FitHistory({ timeline }) {
+function FitHistory({ timeline }: { timeline: HistoryTimelineParkingEntry[] | null }) {
   const map = useMap()
-  const points = timeline?.map((p) => [p.lat, p.lng])
+  const points = timeline?.map((p) => [p.lat, p.lng] as [number, number])
   useEffect(() => {
     if (!points?.length) return
     if (points.length === 1) map.flyTo(points[0], 15, { duration: 0.5 })
@@ -113,7 +123,7 @@ function FitHistory({ timeline }) {
   return null
 }
 
-function Recenter({ center, zoom }) {
+function Recenter({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap()
   useEffect(() => {
     map.flyTo(center, zoom, { duration: 0.6 })
@@ -121,11 +131,31 @@ function Recenter({ center, zoom }) {
   return null
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey }) {
-  const markerRefs = useRef(new Map())
+interface CarMapProps {
+  cars: MapCar[]
+  center: [number, number]
+  zoom?: number
+  userPosition: LatLng | null
+  relocationZone: ZoneShape | null
+  relocationZoneVersion: number
+  showAll: boolean
+  zoneDistances: Map<number, ZoneProximity> | null
+  drivingRoutes: Map<number, DrivingRoute> | null
+  payouts: Map<number, number> | null
+  selectedCar: MapCar | null
+  selectedRoute: SelectedRoute | null
+  onSelect?: (car: MapCar) => void
+  onShowHistory?: (car: MapCar) => void
+  historyTimeline: HistoryTimelineParkingEntry[] | null
+  heatmapCells: HeatmapCell[] | null
+  zoneKey: string
+}
+
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey }: CarMapProps) {
+  const markerRefs = useRef(new Map<number, LeafletMarker>())
   const maxHeatWeight = heatmapCells?.length ? Math.max(...heatmapCells.map((c) => c.minutesParked)) : 0
 
-  const zoneLabel = (car) => {
+  const zoneLabel = (car: MapCar) => {
     const prox = zoneDistances?.get(car.id)
     if (!prox) return null
     if (prox.km === 0) return 'w strefie'
@@ -147,7 +177,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
         />
       )}
       {selectedRoute && selectedRoute.carId === selectedCar?.id && (
-        <Polyline positions={selectedRoute.coords} pathOptions={ROUTE_STYLE} />
+        <Polyline positions={selectedRoute.coords as [number, number][]} pathOptions={ROUTE_STYLE} />
       )}
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -168,9 +198,9 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
           }}
         />
       ))}
-      {historyTimeline?.length > 1 && (
+      {historyTimeline && historyTimeline.length > 1 && (
         <Polyline
-          positions={historyTimeline.map((p) => [p.lat, p.lng])}
+          positions={historyTimeline.map((p) => [p.lat, p.lng] as [number, number])}
           pathOptions={{ color: '#d97706', weight: 3, dashArray: '6 5', opacity: 0.9 }}
         />
       )}
@@ -212,12 +242,12 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
               <br />
               Paliwo: {car.fuel}% · Zasięg: {car.range} km
               <br />
-              {car.discountSum > 0 && (
+              {'discountSum' in car && car.discountSum ? (
                 <>
                   Rabat: {car.discountSum} zł
                   <br />
                 </>
-              )}
+              ) : null}
               Stoi od: {formatElapsedExact(car.parkedSince)}
               <br />
               {zoneLabel(car) && (
@@ -228,7 +258,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
               )}
               {payouts?.has(car.id) && (
                 <>
-                  Szac. zwrot: <strong>{formatPayout(payouts.get(car.id))}</strong>
+                  Szac. zwrot: <strong>{formatPayout(payouts.get(car.id)!)}</strong>
                   <br />
                 </>
               )}

@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { LatLng } from '../utils/geo'
 
 export function useGeolocation() {
-  const [position, setPosition] = useState(null)
+  const [position, setPosition] = useState<LatLng | null>(null)
   // Osobno od `position`: pozycja z jawnego kliknięcia "Moja lokalizacja" —
   // tylko ona ma przesuwać mapę. Ciche aktualizacje z watchPosition ruszają
   // wyłącznie kropkę, inaczej mapa skakałaby za użytkownikiem co kilka sekund.
-  const [fix, setFix] = useState(null)
+  const [fix, setFix] = useState<LatLng | null>(null)
   const [denied, setDenied] = useState(false)
   const [loading, setLoading] = useState(false)
-  const watchIdRef = useRef(null)
+  const watchIdRef = useRef<number | null>(null)
 
   const startWatch = useCallback(() => {
     if (watchIdRef.current != null) return

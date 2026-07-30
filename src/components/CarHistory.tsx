@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
-import { fetchCarHistory } from '../api.js'
-import { formatDurationMin } from '../utils/time.js'
+import { fetchCarHistory } from '../api'
+import { formatDurationMin } from '../utils/time'
+import type { CarHistoryResponse, HistoryTimelineParkingEntry } from '../types/api'
+
+interface CarHistoryProps {
+  carId: number
+  regPlate: string
+  onClose: () => void
+  onData?: (timeline: HistoryTimelineParkingEntry[] | null) => void
+}
 
 function BackIcon() {
   return (
@@ -10,7 +18,7 @@ function BackIcon() {
   )
 }
 
-function formatWhen(iso) {
+function formatWhen(iso: string) {
   return new Date(iso).toLocaleString('pl-PL', {
     day: '2-digit',
     month: '2-digit',
@@ -19,9 +27,9 @@ function formatWhen(iso) {
   })
 }
 
-export function CarHistory({ carId, regPlate, onClose, onData }) {
-  const [data, setData] = useState(null)
-  const [error, setError] = useState(null)
+export function CarHistory({ carId, regPlate, onClose, onData }: CarHistoryProps) {
+  const [data, setData] = useState<CarHistoryResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -33,7 +41,11 @@ export function CarHistory({ carId, regPlate, onClose, onData }) {
       .then((result) => {
         if (cancelled) return
         setData(result)
-        onData?.(result.timeline.filter((e) => e.type === 'parking').reverse())
+        onData?.(
+          result.timeline
+            .filter((e): e is HistoryTimelineParkingEntry => e.type === 'parking')
+            .reverse(),
+        )
       })
       .catch((err) => {
         if (!cancelled) setError(err.message)

@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchStatsHistory, fetchStatsSummary } from '../api.js'
+import { fetchStatsHistory, fetchStatsSummary } from '../api'
+import type { StatsHistoryPoint, StatsSummary, Zone } from '../types/api'
+
+interface StatsViewProps {
+  zones: Zone[]
+  zoneId: string
+  onZoneChange: (zoneId: string) => void
+}
 
 const DAY_OPTIONS = [
   { value: 1, label: '24h' },
@@ -7,29 +14,29 @@ const DAY_OPTIONS = [
   { value: 30, label: '30 dni' },
 ]
 
-function formatBucket(iso, days) {
+function formatBucket(iso: string, days: number) {
   const d = new Date(iso)
   return days <= 1
     ? d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
     : d.toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit' })
 }
 
-function ZoneChart({ series, days }) {
-  const [hoverIdx, setHoverIdx] = useState(null)
+function ZoneChart({ series, days }: { series: StatsHistoryPoint[]; days: number }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null)
   const [asTable, setAsTable] = useState(false)
 
   const W = 640
   const H = 220
   const PAD = 32
 
-  const maxVal = Math.max(1, ...series.flatMap((s) => [s.carsAvailable, s.carsRelocation]))
+  const maxVal = Math.max(1, ...series.flatMap((s) => [s.carsAvailable ?? 0, s.carsRelocation ?? 0]))
   const n = series.length
 
-  const xAt = (i) => PAD + (n <= 1 ? 0 : (i / (n - 1)) * (W - PAD * 2))
-  const yAt = (v) => H - PAD - (v / maxVal) * (H - PAD * 2)
+  const xAt = (i: number) => PAD + (n <= 1 ? 0 : (i / (n - 1)) * (W - PAD * 2))
+  const yAt = (v: number) => H - PAD - (v / maxVal) * (H - PAD * 2)
 
-  const pathFor = (key) =>
-    series.map((s, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i)} ${yAt(s[key])}`).join(' ')
+  const pathFor = (key: 'carsAvailable' | 'carsRelocation') =>
+    series.map((s, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i)} ${yAt(s[key] ?? 0)}`).join(' ')
 
   if (n === 0) {
     return <p className="empty-state">Za mało danych — wróć za chwilę.</p>
@@ -97,8 +104,8 @@ function ZoneChart({ series, days }) {
                 y2={H - PAD}
                 className="chart-crosshair"
               />
-              <circle cx={xAt(hoverIdx)} cy={yAt(series[hoverIdx].carsAvailable)} r="4" className="chart-dot available" />
-              <circle cx={xAt(hoverIdx)} cy={yAt(series[hoverIdx].carsRelocation)} r="4" className="chart-dot relocation" />
+              <circle cx={xAt(hoverIdx)} cy={yAt(series[hoverIdx].carsAvailable ?? 0)} r="4" className="chart-dot available" />
+              <circle cx={xAt(hoverIdx)} cy={yAt(series[hoverIdx].carsRelocation ?? 0)} r="4" className="chart-dot relocation" />
             </>
           )}
         </svg>
@@ -114,11 +121,11 @@ function ZoneChart({ series, days }) {
   )
 }
 
-export function StatsView({ zones, zoneId, onZoneChange }) {
+export function StatsView({ zones, zoneId, onZoneChange }: StatsViewProps) {
   const [days, setDays] = useState(7)
-  const [summary, setSummary] = useState(null)
-  const [history, setHistory] = useState(null)
-  const [error, setError] = useState(null)
+  const [summary, setSummary] = useState<StatsSummary | null>(null)
+  const [history, setHistory] = useState<StatsHistoryPoint[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchStatsSummary(days)

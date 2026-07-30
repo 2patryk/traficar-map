@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchCars } from '../api.js'
+import { fetchCars } from '../api'
+import type { Car } from '../types/api'
 
 const REFRESH_INTERVAL_MS = 60_000
 
-export function useCars(zoneId, discountTypes) {
+export function useCars(zoneId: string, discountTypes: string[] | null) {
   // `carsFor` pamięta, dla jakich parametrów pobrano dane — przy przełączeniu
   // filtra stare auta renderujemy dalej w ICH trybie, aż przyjdą świeże.
-  const [result, setResult] = useState({ cars: [], carsFor: undefined })
+  const [result, setResult] = useState<{ cars: Car[]; carsFor: string[] | null | undefined }>({
+    cars: [],
+    carsFor: undefined,
+  })
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const load = useCallback(() => {
     if (!zoneId) return

@@ -1,7 +1,26 @@
 import { useMemo } from 'react'
-import { formatDrive, formatZoneDistance, googleMapsUrl, haversineDistanceKm } from '../utils/geo.js'
-import { formatElapsed } from '../utils/time.js'
-import { formatPayout } from '../utils/payout.js'
+import { formatDrive, formatZoneDistance, googleMapsUrl, haversineDistanceKm } from '../utils/geo'
+import type { DrivingRoute, LatLng, ZoneProximity } from '../utils/geo'
+import { formatElapsed } from '../utils/time'
+import { formatPayout } from '../utils/payout'
+import type { Car } from '../types/api'
+
+type SortId = 'distance' | 'discount' | 'payout' | 'zone' | 'stale'
+
+interface CarListProps {
+  cars: Car[]
+  origin: LatLng | null
+  loading: boolean
+  showAll: boolean
+  zoneDistances: Map<number, ZoneProximity> | null
+  drivingRoutes: Map<number, DrivingRoute> | null
+  payouts: Map<number, number> | null
+  onSelect?: (car: Car) => void
+  onShowHistory?: (car: Car) => void
+  selectedCarId: number | null
+  sortBy: SortId
+  onSortChange: (sortBy: SortId) => void
+}
 
 function GoIcon() {
   return (
@@ -20,7 +39,7 @@ function HistoryIcon() {
   )
 }
 
-const SORTS = [
+const SORTS: { id: SortId; label: string; showAllOnly?: boolean }[] = [
   { id: 'distance', label: 'Najbliżej mnie' },
   { id: 'discount', label: 'Kwota rabatów' },
   { id: 'payout', label: 'Szac. zwrot' },
@@ -28,30 +47,30 @@ const SORTS = [
   { id: 'stale', label: 'Najdłużej stoi', showAllOnly: true },
 ]
 
-export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, onShowHistory, selectedCarId, sortBy, onSortChange }) {
+export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, onShowHistory, selectedCarId, sortBy, onSortChange }: CarListProps) {
   // "Najdłużej stoi" ma sens tylko przy widoku wszystkich aut — poza nim wróć do domyślnego
-  const activeSort = sortBy === 'stale' && !showAll ? 'distance' : sortBy
+  const activeSort: SortId = sortBy === 'stale' && !showAll ? 'distance' : sortBy
 
   const sorted = useMemo(() => {
-    const distTo = (car) =>
+    const distTo = (car: Car) =>
       origin ? haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng) : 0
     // Auta bez wartości sortowanej lądują na końcu
-    const zoneKm = (car) => {
+    const zoneKm = (car: Car) => {
       const prox = zoneDistances?.get(car.id)
       if (!prox) return Infinity
       return drivingRoutes?.get(car.id)?.km ?? prox.km
     }
-    const payout = (car) => (payouts?.has(car.id) ? payouts.get(car.id) : -Infinity)
+    const payout = (car: Car) => (payouts?.has(car.id) ? payouts.get(car.id)! : -Infinity)
 
-    const cmp = {
+    const cmp: Record<SortId, (a: Car, b: Car) => number> = {
       distance: (a, b) => distTo(a) - distTo(b),
-      discount: (a, b) => b.discountSum - a.discountSum || distTo(a) - distTo(b),
+      discount: (a, b) => (b.discountSum ?? 0) - (a.discountSum ?? 0) || distTo(a) - distTo(b),
       payout: (a, b) => payout(b) - payout(a) || distTo(a) - distTo(b),
       zone: (a, b) => zoneKm(a) - zoneKm(b) || distTo(a) - distTo(b),
       stale: (a, b) => Date.parse(a.parkedSince) - Date.parse(b.parkedSince),
-    }[activeSort]
+    }
 
-    return [...cars].sort(cmp)
+    return [...cars].sort(cmp[activeSort])
   }, [cars, origin, activeSort, zoneDistances, drivingRoutes, payouts])
 
   if (loading && sorted.length === 0) {
@@ -69,7 +88,7 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
   }
 
   // Trasa autem gdy już policzona, wcześniej dystans w linii prostej
-  const zoneLabel = (car) => {
+  const zoneLabel = (car: Car) => {
     const prox = zoneDistances?.get(car.id)
     if (!prox) return null
     if (prox.km === 0) return 'w strefie'
@@ -141,8 +160,8 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
             <div className="row-line">
               <span className="location">{car.location}</span>
               {payouts?.has(car.id) && (
-                <span className={`payout${payouts.get(car.id) > 0 ? '' : ' negative'}`}>
-                  {formatPayout(payouts.get(car.id))}
+                <span className={`payout${payouts.get(car.id)! > 0 ? '' : ' negative'}`}>
+                  {formatPayout(payouts.get(car.id)!)}
                 </span>
               )}
               {zoneLabel(car) && <span className="zone-route">{zoneLabel(car)}</span>}

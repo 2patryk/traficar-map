@@ -1,4 +1,12 @@
-export function ZonePicker({ zones, zoneId, onChange }) {
+import type { Zone } from '../types/api'
+
+interface ZonePickerProps {
+  zones: Zone[]
+  zoneId: string
+  onChange: (zoneId: string) => void
+}
+
+export function ZonePicker({ zones, zoneId, onChange }: ZonePickerProps) {
   return (
     <select
       className="zone-picker"

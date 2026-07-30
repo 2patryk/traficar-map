@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchCarModels, fetchHeatmap, fetchZones } from './api.js'
-import { relocationPayout } from './utils/payout.js'
-import { useCars } from './hooks/useCars.js'
-import { useGeolocation } from './hooks/useGeolocation.js'
-import { useRelocationZone } from './hooks/useRelocationZone.js'
-import { ZONE_CENTER_OVERRIDES, zoneCenter } from './utils/zoneCenters.js'
-import { zoneEntryCandidates, zoneProximity } from './utils/geo.js'
-import { fetchRouteGeometry, useDrivingRoutes } from './hooks/useDrivingRoutes.js'
-import { ZonePicker } from './components/ZonePicker.jsx'
-import { CarMap } from './components/CarMap.jsx'
-import { CarList } from './components/CarList.jsx'
-import { CarHistory } from './components/CarHistory.jsx'
-import { LongestParkedPanel } from './components/LongestParkedPanel.jsx'
-import { StatsView } from './components/StatsView.jsx'
+import { fetchCarModels, fetchHeatmap, fetchZones } from './api'
+import { relocationPayout } from './utils/payout'
+import { useCars } from './hooks/useCars'
+import { useGeolocation } from './hooks/useGeolocation'
+import { useRelocationZone } from './hooks/useRelocationZone'
+import { ZONE_CENTER_OVERRIDES, zoneCenter } from './utils/zoneCenters'
+import { zoneEntryCandidates, zoneProximity } from './utils/geo'
+import type { LatLng } from './utils/geo'
+import { fetchRouteGeometry, useDrivingRoutes } from './hooks/useDrivingRoutes'
+import type { RouteTarget } from './hooks/useDrivingRoutes'
+import { ZonePicker } from './components/ZonePicker'
+import { CarMap } from './components/CarMap'
+import { CarList } from './components/CarList'
+import { CarHistory } from './components/CarHistory'
+import { LongestParkedPanel } from './components/LongestParkedPanel'
+import { StatsView } from './components/StatsView'
+import type { Car, HeatmapCell, HistoryTimelineParkingEntry, RankedCar, Zone } from './types/api'
 import './App.css'
 
 const DEFAULT_ZONE_NAME = 'Łódź'
@@ -20,9 +23,9 @@ const DISCOUNT_TYPES = ['Relokacja']
 
 // Ranking zwraca auta bez `discountSum` (feed aut je liczy) — pinezka i lista
 // potrzebują tego pola, więc dopełniamy je przy przenoszeniu auta między widokami
-function withDiscountSum(car) {
-  if (car.discountSum != null) return car
-  return { ...car, discountSum: (car.discounts ?? []).reduce((sum, d) => sum + d.amount, 0) }
+function withDiscountSum(car: Car | RankedCar): Car {
+  if ('discountSum' in car && car.discountSum != null) return car
+  return { ...car, discountSum: (car.discounts ?? []).reduce((sum, d) => sum + d.amount, 0) } as Car
 }
 
 function RefreshIcon() {
@@ -76,9 +79,9 @@ function HeatmapIcon() {
 }
 
 function App() {
-  const [zones, setZones] = useState([])
+  const [zones, setZones] = useState<Zone[]>([])
   const [zoneId, setZoneId] = useState('')
-  const [zonesError, setZonesError] = useState(null)
+  const [zonesError, setZonesError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
@@ -119,7 +122,7 @@ function App() {
   // z granicy, wybór przez OSRM table w hooku
   const routeTargets = useMemo(() => {
     if (!zoneDistances || !relocationZone) return []
-    const targets = []
+    const targets: RouteTarget[] = []
     for (const car of cars) {
       const prox = zoneDistances.get(car.id)
       if (prox?.point) {
@@ -133,7 +136,7 @@ function App() {
   }, [cars, zoneDistances, relocationZone])
   const drivingRoutes = useDrivingRoutes(routeTargets, relocationZone)
 
-  const [models, setModels] = useState(null)
+  const [models, setModels] = useState<Map<number, { name: string; type: number }> | null>(null)
   useEffect(() => {
     fetchCarModels().then(setModels)
   }, [])
@@ -142,7 +145,7 @@ function App() {
   // wg dystansu OSRM (auta w strefie i bez trasy — brak wartości)
   const payouts = useMemo(() => {
     if (!models) return null
-    const byId = new Map()
+    const byId = new Map<number, number>()
     for (const car of cars) {
       if (!zoneDistances?.get(car.id)?.point) continue
       const route = drivingRoutes?.get(car.id)
@@ -153,23 +156,23 @@ function App() {
   }, [cars, models, zoneDistances, drivingRoutes])
 
   // Kliknięte auto: rysujemy jego trasę do strefy na mapie
-  const [selectedCarId, setSelectedCarId] = useState(null)
+  const [selectedCarId, setSelectedCarId] = useState<number | null>(null)
   // Auto wybrane z rankingu może nie być w aktualnym feedzie (filtr "Relokacja"
   // albo zniknęło z listy) — trzymamy jego dane, żeby pinezka i podgląd działały
-  const [pinnedCar, setPinnedCar] = useState(null)
+  const [pinnedCar, setPinnedCar] = useState<Car | null>(null)
   // Historia trzyma obiekt auta, nie id: gdy auto wypadnie z feedu (ktoś je
   // wynajął), panel nie może zniknąć w trakcie przeglądania
-  const [historyCar, setHistoryCar] = useState(null)
-  const [historyTimeline, setHistoryTimeline] = useState(null)
+  const [historyCar, setHistoryCar] = useState<Car | null>(null)
+  const [historyTimeline, setHistoryTimeline] = useState<HistoryTimelineParkingEntry[] | null>(null)
   const [showRanking, setShowRanking] = useState(false)
   // Stan sortowania podniesiony do App — panele się odmontowują przy przełączaniu
   // widoków, a wybrane sortowanie musi przetrwać powrót do panelu
-  const [listSort, setListSort] = useState('distance')
-  const [rankingOrder, setRankingOrder] = useState('desc')
-  const [selectedRoute, setSelectedRoute] = useState(null)
-  const [view, setView] = useState('map')
+  const [listSort, setListSort] = useState<'distance' | 'discount' | 'payout' | 'zone' | 'stale'>('distance')
+  const [rankingOrder, setRankingOrder] = useState<'asc' | 'desc'>('desc')
+  const [selectedRoute, setSelectedRoute] = useState<{ carId: number; coords: number[][] } | null>(null)
+  const [view, setView] = useState<'map' | 'stats'>('map')
   const [heatmapOn, setHeatmapOn] = useState(false)
-  const [heatmapCells, setHeatmapCells] = useState(null)
+  const [heatmapCells, setHeatmapCells] = useState<HeatmapCell[] | null>(null)
 
   useEffect(() => {
     if (!heatmapOn || !zoneId) {
@@ -199,7 +202,7 @@ function App() {
 
   // Escape wychodzi z nakładek w kolejności otwarcia: historia, ranking, zaznaczenie
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (historyCar) setHistoryCar(null)
       else if (showRanking) setShowRanking(false)
@@ -236,7 +239,7 @@ function App() {
     if (!prox?.point) return
     // Geometria do najszybszego wjazdu z OSRM table; zanim table odpowie,
     // fallback na najbliższy punkt geometrycznie
-    const dest = drivingRoutes?.get(selectedCar.id)?.to ?? prox.point
+    const dest: LatLng = drivingRoutes?.get(selectedCar.id)?.to ?? prox.point
     let cancelled = false
     fetchRouteGeometry({ lat: selectedCar.lat, lng: selectedCar.lng }, dest)
       .then((coords) => {
@@ -250,12 +253,12 @@ function App() {
 
   // Lista: ponowny klik odznacza. Pinezka: zawsze zaznacza — toggle zamykałby
   // popup, który Leaflet właśnie otworzył tym samym kliknięciem.
-  const selectCar = (car, { toggle = true } = {}) => {
+  const selectCar = (car: { id: number }, { toggle = true }: { toggle?: boolean } = {}) => {
     setSelectedCarId((id) => (toggle && id === car.id ? null : car.id))
   }
 
   // Historia otwiera się z listy, rankingu i mapy — zawsze z pełnym obiektem
-  const showHistory = (car) => {
+  const showHistory = (car: Car | RankedCar) => {
     const full = withDiscountSum(car)
     setHistoryCar(full)
     // Przypinamy też do mapy: po zamknięciu historii kadr wraca na to auto,
@@ -271,7 +274,7 @@ function App() {
   // it must NOT be driven by `origin` directly, since once geolocation succeeds
   // `origin` stays pinned to the user's position forever, and switching zones
   // would never move the map again.
-  const [focus, setFocus] = useState(null)
+  const [focus, setFocus] = useState<LatLng | null>(null)
 
   useEffect(() => {
     const zc = zoneCenter(zone)
@@ -285,7 +288,7 @@ function App() {
 
   const defaultCenter = ZONE_CENTER_OVERRIDES[DEFAULT_ZONE_NAME]
   const center = useMemo(
-    () => (focus ? [focus.lat, focus.lng] : [defaultCenter.lat, defaultCenter.lng]),
+    (): [number, number] => (focus ? [focus.lat, focus.lng] : [defaultCenter.lat, defaultCenter.lng]),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key on primitives, not `focus`, so the array reference stays stable across unrelated re-renders
     [focus?.lat, focus?.lng],
   )
@@ -399,7 +402,7 @@ function App() {
             zoneDistances={zoneDistances}
             drivingRoutes={drivingRoutes}
             payouts={payouts}
-            selectedCar={historyCar ? null : selectedCar}
+            selectedCar={historyCar ? null : (selectedCar ?? null)}
             selectedRoute={historyCar ? null : selectedRoute}
             onSelect={(car) => selectCar(car, { toggle: false })}
             onShowHistory={showHistory}

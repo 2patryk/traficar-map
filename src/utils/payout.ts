@@ -3,13 +3,13 @@
 // Kilometry z trasy OSRM, zaokrąglane W GÓRĘ do pełnego km (3,5 → 4).
 const BONUS = 30
 
-export function relocationPayout(modelName, routeKm) {
+export function relocationPayout(modelName: string | null | undefined, routeKm: number) {
   const arkana = /arkana/i.test(modelName ?? '')
   const start = arkana ? 5.99 : 4.99
   const perKm = arkana ? 2.69 : 2.39
   return BONUS - start - perKm * Math.ceil(routeKm)
 }
 
-export function formatPayout(zl) {
+export function formatPayout(zl: number) {
   return `${zl.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł`
 }

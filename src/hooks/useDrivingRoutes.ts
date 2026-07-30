@@ -1,19 +1,27 @@
 import { useEffect, useState } from 'react'
-import { isInsideZone, zoneProximity } from '../utils/geo.js'
+import { isInsideZone, zoneProximity } from '../utils/geo'
+import type { DrivingRoute, LatLng } from '../utils/geo'
+import type { ZoneShape } from '../types/api'
+
+export interface RouteTarget {
+  id: number
+  from: LatLng
+  candidates: LatLng[]
+}
 
 const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving'
 const OSRM_TABLE = 'https://router.project-osrm.org/table/v1/driving'
 
 // Cache na czas życia aplikacji — pozycja auta się nie zmienia, więc nie ma
 // sensu pytać OSRM ponownie przy każdym 60-sekundowym odświeżeniu feedu.
-const cache = new Map()
+const cache = new Map<string, DrivingRoute>()
 
 // Pełna geometria trasy (do narysowania na mapie) — [[lat,lng], ...] albo null
-const geometryCache = new Map()
+const geometryCache = new Map<string, number[][] | null>()
 
-export async function fetchRouteGeometry(from, to) {
+export async function fetchRouteGeometry(from: LatLng, to: LatLng): Promise<number[][] | null> {
   const key = `${from.lat},${from.lng};${to.lat},${to.lng}`
-  if (geometryCache.has(key)) return geometryCache.get(key)
+  if (geometryCache.has(key)) return geometryCache.get(key) ?? null
   // alternatives: OSRM domyślnie optymalizuje czas — bierzemy najkrótszą
   // dystansem spośród zaproponowanych wariantów
   const url = `${OSRM_BASE}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&alternatives=3`
@@ -21,10 +29,11 @@ export async function fetchRouteGeometry(from, to) {
   if (!res.ok) return null
   const data = await res.json()
   const shortest = (data.routes ?? []).reduce(
-    (best, r) => (!best || r.distance < best.distance ? r : best),
+    (best: { distance: number; geometry: { coordinates: number[][] } } | null, r: { distance: number; geometry: { coordinates: number[][] } }) =>
+      !best || r.distance < best.distance ? r : best,
     null,
   )
-  const coords = shortest?.geometry?.coordinates?.map(([lng, lat]) => [lat, lng]) ?? null
+  const coords = shortest?.geometry?.coordinates?.map(([lng, lat]: number[]) => [lat, lng]) ?? null
   geometryCache.set(key, coords)
   return coords
 }
@@ -33,7 +42,11 @@ export async function fetchRouteGeometry(from, to) {
 // naraz. Preferuje kandydatów, których pozycja PO snapie do drogi nadal leży
 // w strefie (snap potrafi uciec za granicę); fallback: najszybszy ogólnie.
 // Zwraca najszybszy wjazd: { km, min, to } albo null.
-async function fetchBestEntry(from, candidates, zoneGeo) {
+async function fetchBestEntry(
+  from: LatLng,
+  candidates: LatLng[],
+  zoneGeo: ZoneShape | null,
+): Promise<DrivingRoute | null> {
   const coords = [from, ...candidates].map((p) => `${p.lng},${p.lat}`).join(';')
   const res = await fetch(`${OSRM_TABLE}/${coords}?sources=0&annotations=duration,distance`)
   if (!res.ok) return null
@@ -42,16 +55,22 @@ async function fetchBestEntry(from, candidates, zoneGeo) {
   const distances = data.distances?.[0]
   if (!durations || !distances) return null
 
-  let bestInside = null
-  let bestAny = null
+  interface Entry {
+    duration: number
+    distance: number
+    to: LatLng
+  }
+
+  let bestInside: Entry | null = null
+  let bestAny: Entry | null = null
   // Wybór po NAJKRÓTSZYM dystansie (nie czasie) — zwrot za relokację liczy
   // się od kilometrów, remis rozstrzyga czas
-  const better = (a, b) =>
+  const better = (a: Entry, b: Entry | null) =>
     !b || a.distance < b.distance || (a.distance === b.distance && a.duration < b.duration)
   // Indeks 0 to samo auto (source) — pomijamy
   for (let i = 1; i < durations.length; i++) {
     if (durations[i] == null || distances[i] == null) continue
-    const entry = { duration: durations[i], distance: distances[i], to: candidates[i - 1] }
+    const entry: Entry = { duration: durations[i], distance: distances[i], to: candidates[i - 1] }
     if (better(entry, bestAny)) bestAny = entry
     // Tolerancja 150 m: snap kandydata granicznego ląduje na drodze biegnącej
     // po granicy — geometrycznie o włos "poza" strefą, praktycznie wjazd OK
@@ -67,18 +86,17 @@ async function fetchBestEntry(from, candidates, zoneGeo) {
   return best ? { km: best.distance / 1000, min: best.duration / 60, to: best.to } : null
 }
 
-// targets: [{ id, from: {lat,lng}, candidates: [{lat,lng}, ...] }]
 // Zwraca Map id -> { km, min, to }. Zapytania sekwencyjne — publiczny serwer
 // demo OSRM, nie zalewamy go równoległymi requestami.
-export function useDrivingRoutes(targets, zoneGeo) {
-  const [routes, setRoutes] = useState(() => new Map())
+export function useDrivingRoutes(targets: RouteTarget[], zoneGeo: ZoneShape | null) {
+  const [routes, setRoutes] = useState<Map<number, DrivingRoute>>(() => new Map())
 
   useEffect(() => {
     if (targets.length === 0) return
     let cancelled = false
 
     ;(async () => {
-      const next = new Map()
+      const next = new Map<number, DrivingRoute>()
       let dirty = false
       for (const t of targets) {
         const key = `${t.id}:${t.from.lat.toFixed(5)},${t.from.lng.toFixed(5)}`
@@ -92,7 +110,8 @@ export function useDrivingRoutes(targets, zoneGeo) {
           if (cancelled) return
           dirty = true
         }
-        if (cache.has(key)) next.set(t.id, cache.get(key))
+        const cached = cache.get(key)
+        if (cached) next.set(t.id, cached)
         // Pokazuj wyniki przyrostowo, nie dopiero po całej serii
         if (dirty) setRoutes(new Map(next))
       }
