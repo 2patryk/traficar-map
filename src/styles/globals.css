@@ -30,6 +30,8 @@
   /* Auta z rabatem/zwrotem — jedyny kolor zarezerwowany dla pieniędzy */
   --color-money: var(--money);
   --color-money-negative: var(--money-negative);
+  --color-chart-available: var(--chart-available);
+  --color-chart-relocation: var(--chart-relocation);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -60,6 +62,11 @@
   --money-negative: #f87171;
   --shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.55);
   --radius: 0.625rem;
+
+  /* Wykresy statystyk — para zwalidowana skryptem dataviz (ΔE, kontrast,
+     pasmo jasności) dla OBU trybów naraz, więc bez osobnego wariantu light */
+  --chart-available: #3b82f6;
+  --chart-relocation: #059669;
 
   color-scheme: dark;
 }
@@ -142,7 +149,6 @@ button {
   --live: var(--money);
   --live-soft: color-mix(in oklab, var(--money) 16%, transparent);
   --danger: var(--destructive);
-  --stat-secondary: #d97706;
   --font-display: var(--font-heading);
   --font-body: var(--font-sans);
 }
