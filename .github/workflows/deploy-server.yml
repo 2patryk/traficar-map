@@ -14,6 +14,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Type-check server
+        working-directory: server
+        run: |
+          npm ci
+          npx tsc --noEmit
+
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
@@ -24,7 +34,7 @@ jobs:
       - name: Rsync server/ to Mikrus
         run: |
           rsync -az --delete \
-            --exclude node_modules --exclude data --exclude .env \
+            --exclude node_modules --exclude dist --exclude data --exclude .env \
             -e "ssh -p ${{ secrets.MIKRUS_PORT }} -i ~/.ssh/id_ed25519" \
             server/ root@${{ secrets.MIKRUS_HOST }}:/opt/traficar/
 

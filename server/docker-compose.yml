@@ -5,7 +5,7 @@ services:
       - ./data:/app/data
     environment:
       DB_PATH: /app/data/traficar.db
-    command: node db/migrate.js
+    command: node dist/db/migrate.js
 
   collector:
     build: .
@@ -18,7 +18,7 @@ services:
     environment:
       DB_PATH: /app/data/traficar.db
       CRONITOR_API_KEY: ${CRONITOR_API_KEY:-}
-    command: node collector.js
+    command: node dist/collector.js
 
   api:
     build: .
@@ -33,7 +33,7 @@ services:
       PORT: 20137
     ports:
       - '20137:20137'
-    command: node api.js
+    command: node dist/api.js
 
   nightly:
     build: .
@@ -46,4 +46,4 @@ services:
     environment:
       DB_PATH: /app/data/traficar.db
       CRONITOR_API_KEY: ${CRONITOR_API_KEY:-}
-    command: node nightly.js
+    command: node dist/nightly.js
