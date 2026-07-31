@@ -38,14 +38,22 @@ interface FiltersSheetProps {
   filters: Filters
   onChange: (filters: Filters) => void
   activeCount: number
+  availableModels: { id: number; name: string }[]
 }
 
-export function FiltersSheet({ filters, onChange, activeCount }: FiltersSheetProps) {
+export function FiltersSheet({ filters, onChange, activeCount, availableModels }: FiltersSheetProps) {
   // Przynajmniej jeden typ musi zostać zaznaczony — inaczej lista byłaby zawsze pusta
   const toggleType = (type: CarModelType) => {
     const has = filters.carTypes.includes(type)
     const next = has ? filters.carTypes.filter((t) => t !== type) : [...filters.carTypes, type]
     if (next.length > 0) onChange({ ...filters, carTypes: next })
+  }
+
+  // Pusta lista = bez filtra modelu, w odróżnieniu od typu auta
+  const toggleModel = (id: number) => {
+    const has = filters.modelIds.includes(id)
+    const next = has ? filters.modelIds.filter((m) => m !== id) : [...filters.modelIds, id]
+    onChange({ ...filters, modelIds: next })
   }
 
   return (
@@ -106,6 +114,24 @@ export function FiltersSheet({ filters, onChange, activeCount }: FiltersSheetPro
               ))}
             </div>
           </div>
+
+          {availableModels.length > 0 && (
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">Model</p>
+              <div className="flex flex-wrap gap-2">
+                {availableModels.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`sort-chip${filters.modelIds.includes(m.id) ? ' active' : ''}`}
+                    onClick={() => toggleModel(m.id)}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <DrawerFooter className="flex-row gap-2">

@@ -33,8 +33,6 @@ export interface Car {
   discountSum?: number
 }
 
-export type RankedCar = Omit<Car, 'sideNumber' | 'zoneId' | 'discountSum'>
-
 export interface HistoryTimelineParkingEntry {
   type: 'parking'
   lat: number

@@ -19,19 +19,16 @@ import { CarMap } from './components/CarMap'
 import { CarList } from './components/CarList'
 import { CarDetail } from './components/CarDetail'
 import { HistoryView } from './components/HistoryView'
-import { RankingView } from './components/RankingView'
 import { StatsView } from './components/StatsView'
-import type { Car, HeatmapCell, HistoryTimelineParkingEntry, RankedCar, Zone } from './types/api'
+import type { Car, HeatmapCell, HistoryTimelineParkingEntry, Zone } from './types/api'
 import './App.css'
 
 const DEFAULT_ZONE_NAME = 'Łódź'
 const DISCOUNT_TYPES = ['Relokacja']
 
-// Ranking zwraca auta bez `discountSum` (feed aut je liczy) — pinezka i lista
-// potrzebują tego pola, więc dopełniamy je przy przenoszeniu auta między widokami
-function withDiscountSum(car: Car | RankedCar): Car {
-  if ('discountSum' in car && car.discountSum != null) return car
-  return { ...car, discountSum: (car.discounts ?? []).reduce((sum, d) => sum + d.amount, 0) } as Car
+function withDiscountSum(car: Car): Car {
+  if (car.discountSum != null) return car
+  return { ...car, discountSum: (car.discounts ?? []).reduce((sum, d) => sum + d.amount, 0) }
 }
 
 function App() {
@@ -77,6 +74,7 @@ function App() {
     return cars.filter((car) => {
       const type = models?.get(car.modelId)?.type
       if (type != null && !filters.carTypes.includes(type as 1 | 2 | 6)) return false
+      if (filters.modelIds.length > 0 && !filters.modelIds.includes(car.modelId)) return false
       if (filters.maxDistanceKm != null && origin) {
         const km = haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng)
         if (km > filters.maxDistanceKm) return false
@@ -85,12 +83,24 @@ function App() {
     })
   }, [cars, models, filters, origin])
 
+  // Modele dostępne do wyboru w filtrze — z aut w bieżącej strefie (po typie,
+  // ale przed filtrem modelu, żeby zawężanie nie chowało własnych opcji)
+  const availableModels = useMemo(() => {
+    const byId = new Map<number, string>()
+    for (const car of cars) {
+      const type = models?.get(car.modelId)?.type
+      if (type != null && !filters.carTypes.includes(type as 1 | 2 | 6)) continue
+      const name = models?.get(car.modelId)?.name
+      if (name) byId.set(car.modelId, name)
+    }
+    return [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [cars, models, filters.carTypes])
+
   // Stos warstw sheetu: baza (list/ranking) + opcjonalnie car/history na wierzchu.
   // Wybór auta (`car`) i historia (`history`) korzystają z pełnego obiektu
   // trzymanego w warstwie — auto z rankingu spoza przefiltrowanego feedu dalej
   // działa, bo pinezka/podgląd czytają go stamtąd, nie z listy `cars`.
-  const { stack, top, push, pop, replace, setBase, collapseToBase } = usePanelStack()
-  const base = stack[0]
+  const { stack, top, push, pop, replace, collapseToBase } = usePanelStack()
   const carLayer = stack[1]?.kind === 'car' ? stack[1] : null
   const historyLayer = top.kind === 'history' ? top : null
   const pinnedCar = carLayer?.car ?? null
@@ -151,8 +161,7 @@ function App() {
 
   const [historyTimeline, setHistoryTimeline] = useState<HistoryTimelineParkingEntry[] | null>(null)
   // Stan sortowań i filtrów zostaje poza stosem — musi przetrwać nawigację między warstwami
-  const [listSort, setListSort] = useState<'distance' | 'discount' | 'payout' | 'zone' | 'stale'>('distance')
-  const [rankingOrder, setRankingOrder] = useState<'asc' | 'desc'>('desc')
+  const [listSort, setListSort] = useState<'distance' | 'discount' | 'payout' | 'zone' | 'stale' | 'age'>('distance')
   const [selectedRoute, setSelectedRoute] = useState<{ carId: number; coords: number[][] } | null>(null)
   const [view, setView] = useState<'map' | 'stats'>('map')
   const [heatmapOn, setHeatmapOn] = useState(false)
@@ -197,17 +206,15 @@ function App() {
     if (!historyLayer) setHistoryTimeline(null)
   }, [historyLayer])
 
-  // Escape schodzi po stosie: najpierw nakładki (historia, potem auto),
-  // a gdy stos jest płaski — zamyka ranking
+  // Escape zdejmuje nakładki ze stosu (historia, potem auto)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (stack.length > 1) pop()
-      else if (base.kind === 'ranking') setBase({ kind: 'list' })
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [stack.length, base.kind, pop, setBase])
+  }, [stack.length, pop])
 
   // Trasa autem gdy już policzona, wcześniej dystans w linii prostej — auto
   // z feedu ma świeże współrzędne, `pinnedCar` może być chwilę starszą kopią
@@ -247,7 +254,7 @@ function App() {
 
   // Lista: ponowny klik odznacza (pop warstwy `car`). Pinezka na mapie: zawsze
   // zaznacza — toggle zamykałby popup, który Leaflet właśnie otworzył tym samym kliknięciem.
-  const selectCar = (car: Car | RankedCar, { toggle = true }: { toggle?: boolean } = {}) => {
+  const selectCar = (car: Car, { toggle = true }: { toggle?: boolean } = {}) => {
     const full = withDiscountSum(car)
     if (top.kind === 'car' && top.car.id === full.id) {
       if (toggle) pop()
@@ -260,17 +267,13 @@ function App() {
   // Historia otwiera się z listy, rankingu i mapy — zawsze z pełnym obiektem.
   // Zapewnia warstwę `car` pod spodem, żeby po zamknięciu historii (pop)
   // auto zostało zaznaczone tak samo jak przed wejściem w historię.
-  const showHistory = (car: Car | RankedCar) => {
+  const showHistory = (car: Car) => {
     const full = withDiscountSum(car)
     if (top.kind !== 'car' || top.car.id !== full.id) {
       if (top.kind === 'car') replace({ kind: 'car', car: full })
       else push({ kind: 'car', car: full })
     }
     push({ kind: 'history', car: full })
-  }
-
-  const toggleRanking = () => {
-    setBase({ kind: base.kind === 'ranking' ? 'list' : 'ranking' })
   }
 
   // The map's camera follows the selected zone or an explicit location request —
@@ -334,6 +337,7 @@ function App() {
           filters={filters}
           onFiltersChange={setFilters}
           filtersActiveCount={filtersActiveCount}
+          availableModels={availableModels}
         />
       }
       statusStrip={statusStrip}
@@ -346,9 +350,11 @@ function App() {
           relocationZone={zoneOn ? relocationZone : null}
           relocationZoneVersion={relocationZoneVersion}
           showAll={effectiveShowAll}
+          ageColorActive={listSort === 'age'}
           zoneDistances={zoneDistances}
           drivingRoutes={drivingRoutes}
           payouts={payouts}
+          models={models}
           selectedCar={historyLayer ? null : selectedCar}
           selectedRoute={historyLayer ? null : selectedRoute}
           onSelect={(car) => selectCar(car, { toggle: false })}
@@ -386,18 +392,9 @@ function App() {
             payout={payouts?.get(top.car.id) ?? null}
             route={drivingRoutes?.get(top.car.id) ?? null}
             proximity={zoneDistances?.get(top.car.id) ?? null}
+            modelName={models?.get(top.car.modelId)?.name ?? null}
             onClose={pop}
             onShowHistory={() => showHistory(top.car)}
-          />
-        ) : base.kind === 'ranking' ? (
-          <RankingView
-            zoneId={zoneId}
-            order={rankingOrder}
-            onOrderChange={setRankingOrder}
-            selectedCarId={pinnedCar?.id ?? null}
-            onSelect={(car) => selectCar(car, { toggle: false })}
-            onShowHistory={showHistory}
-            onClose={() => setBase({ kind: 'list' })}
           />
         ) : (
           <CarList
@@ -408,11 +405,11 @@ function App() {
             zoneDistances={zoneDistances}
             drivingRoutes={drivingRoutes}
             payouts={payouts}
+            models={models}
             onSelect={selectCar}
             selectedCarId={pinnedCar?.id ?? null}
             sortBy={listSort}
             onSortChange={setListSort}
-            onOpenRanking={toggleRanking}
           />
         )
       }

@@ -111,6 +111,9 @@
 .car-list {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   list-style: none;
   margin: 0;
   padding: 0 0.5rem 0.5rem;
@@ -268,7 +271,8 @@
   font-weight: 600;
   font-size: 0.72rem;
   color: white;
-  background: linear-gradient(135deg, var(--accent-2), var(--accent));
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  background: var(--pin-bg, linear-gradient(135deg, var(--accent-2), var(--accent)));
   border-radius: 999px;
   padding: 5px 9px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(255, 255, 255, 0.12) inset;
@@ -277,11 +281,11 @@
 }
 
 .car-pin.time {
-  background: #475569;
+  background: var(--pin-bg, #475569);
 }
 
 .car-pin.time::after {
-  background: #475569;
+  background: var(--pin-dot, #475569);
 }
 
 .car-pin::after {
@@ -292,7 +296,7 @@
   transform: translateX(-50%);
   width: 8px;
   height: 8px;
-  background: var(--accent);
+  background: var(--pin-dot, var(--accent));
   clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 

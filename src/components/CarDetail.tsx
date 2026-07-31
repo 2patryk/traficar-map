@@ -14,6 +14,7 @@ interface CarDetailProps {
   payout: number | null
   route: DrivingRoute | null
   proximity: ZoneProximity | null
+  modelName: string | null
   onClose: () => void
   onShowHistory: () => void
 }
@@ -43,7 +44,7 @@ function HistoryIcon() {
   )
 }
 
-export function CarDetail({ car, payout, route, proximity, onClose, onShowHistory }: CarDetailProps) {
+export function CarDetail({ car, payout, route, proximity, modelName, onClose, onShowHistory }: CarDetailProps) {
   const zoneText =
     proximity == null
       ? null
@@ -60,6 +61,8 @@ export function CarDetail({ car, payout, route, proximity, onClose, onShowHistor
           <BackIcon />
         </button>
         <strong>{car.regPlate}</strong>
+        <span className="font-mono text-xs text-muted-foreground">#{car.sideNumber}</span>
+        {modelName && <span className="ml-auto text-sm text-muted-foreground">{modelName}</span>}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4">
@@ -100,6 +103,19 @@ export function CarDetail({ car, payout, route, proximity, onClose, onShowHistor
             <div className="col-span-2">
               <dt className="text-muted-foreground">Strefa relokacji</dt>
               <dd className="font-mono text-accent">{zoneText}</dd>
+            </div>
+          )}
+          {car.discounts.length > 0 && (
+            <div className="col-span-2">
+              <dt className="text-muted-foreground">Rabaty</dt>
+              <dd className="text-foreground">
+                {car.discounts.map((d, i) => (
+                  <div key={i} className="flex justify-between font-mono">
+                    <span>{d.name}</span>
+                    <span>{d.amount} zł</span>
+                  </div>
+                ))}
+              </dd>
             </div>
           )}
         </dl>

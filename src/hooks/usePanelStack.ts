@@ -1,12 +1,11 @@
 import { useCallback, useState } from 'react'
 import type { Car } from '../types/api'
 
-// Stos warstw sheetu. `list`/`ranking` to baza (indeks 0, wymieniana przez
-// toggle, nie push/pop) — `car`/`history` to nakładki pushowane na wierzch.
-// Strzałka powrotu w nagłówku sheetu pokazuje się tylko gdy stack.length > 1.
+// Stos warstw sheetu. `list` to baza (indeks 0) — `car`/`history` to nakładki
+// pushowane na wierzch. Strzałka powrotu w nagłówku sheetu pokazuje się
+// tylko gdy stack.length > 1.
 export type PanelLayer =
   | { kind: 'list' }
-  | { kind: 'ranking' }
   | { kind: 'car'; car: Car }
   | { kind: 'history'; car: Car }
 
@@ -27,8 +26,7 @@ export function usePanelStack(initialBase: PanelLayer = DEFAULT_BASE) {
     setStack((s) => [...s.slice(0, -1), layer])
   }, [])
 
-  // Podmienia bazę (list <-> ranking) i odrzuca wszystkie nakładki nad nią —
-  // baza to toggle z headera, nie krok nawigacji do cofnięcia gestem.
+  // Podmienia bazę i odrzuca wszystkie nakładki nad nią.
   const setBase = useCallback((layer: PanelLayer) => {
     setStack([layer])
   }, [])

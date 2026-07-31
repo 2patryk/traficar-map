@@ -4,7 +4,6 @@ import type {
   CarModel,
   HealthResponse,
   HeatmapCell,
-  RankedCar,
   StatsHistoryResponse,
   StatsSummary,
   Zone,
@@ -70,19 +69,6 @@ export async function fetchCarHistory(carId: number, days = 30): Promise<CarHist
   const res = await fetch(`/api/cars/${carId}/history?days=${days}`)
   if (!res.ok) throw new Error(`Nie udało się pobrać historii auta (${res.status})`)
   return res.json()
-}
-
-export async function fetchLongestParked(
-  zoneId: string | number,
-  limit = 100,
-  order: 'asc' | 'desc' = 'desc',
-): Promise<RankedCar[]> {
-  const res = await fetch(
-    `/api/stats/longest-parked?zoneId=${zoneId}&limit=${limit}&order=${order}`,
-  )
-  if (!res.ok) throw new Error(`Nie udało się pobrać rankingu (${res.status})`)
-  const { cars } = await res.json()
-  return cars
 }
 
 export async function fetchStatsHistory(zoneId: string | number, days = 7): Promise<StatsHistoryResponse> {

@@ -8,6 +8,7 @@ interface CarRowProps {
   payout: number | null
   distanceKm: number | null
   zoneLabel: string | null
+  modelName: string | null
   selected: boolean
   onClick: () => void
 }
@@ -15,7 +16,7 @@ interface CarRowProps {
 // Zwrot netto — nie kwota rabatu — jest tu główną liczbą: to ona mówi, czy
 // w ogóle opłaca się jechać. Rabat/czas postoju to tylko fallback, gdy
 // trasa do strefy jeszcze nie policzona (albo auto bez rabatu w trybie "wszystkie").
-export function CarRow({ car, showAll, payout, distanceKm, zoneLabel, selected, onClick }: CarRowProps) {
+export function CarRow({ car, showAll, payout, distanceKm, zoneLabel, modelName, selected, onClick }: CarRowProps) {
   const headline =
     payout != null
       ? formatPayout(payout)
@@ -43,12 +44,14 @@ export function CarRow({ car, showAll, payout, distanceKm, zoneLabel, selected, 
       <div className="flex items-baseline gap-3">
         <span className={`font-mono text-2xl font-bold tabular-nums ${headlineClass}`}>{headline}</span>
         <span className="font-mono text-sm font-semibold text-foreground">{car.regPlate}</span>
+        <span className="font-mono text-xs text-muted-foreground">#{car.sideNumber}</span>
         {distanceKm != null && (
           <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
             {distanceKm.toFixed(1)} km
           </span>
         )}
       </div>
+      {modelName && <div className="mt-0.5 text-xs text-muted-foreground">{modelName}</div>}
       <div className="mt-1 flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{car.location}</span>
         {zoneLabel && (

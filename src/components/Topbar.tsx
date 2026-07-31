@@ -36,6 +36,7 @@ interface TopbarProps {
   filters: Filters
   onFiltersChange: (filters: Filters) => void
   filtersActiveCount: number
+  availableModels: { id: number; name: string }[]
 }
 
 export function Topbar({
@@ -53,6 +54,7 @@ export function Topbar({
   filters,
   onFiltersChange,
   filtersActiveCount,
+  availableModels,
 }: TopbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background/85 px-3 py-2 backdrop-blur-md sm:px-4">
@@ -69,7 +71,7 @@ export function Topbar({
       </div>
 
       {view === 'map' && (
-        <span className="hidden h-11 shrink-0 items-center rounded-xl bg-primary/15 px-3 font-mono text-sm font-bold text-primary sm:inline-flex">
+        <span className="inline-flex h-11 shrink-0 items-center rounded-xl bg-primary/15 px-3 font-mono text-sm font-bold text-primary">
           {carCount} {showAll ? 'aut' : 'z rabatem'}
         </span>
       )}
@@ -92,7 +94,7 @@ export function Topbar({
       )}
 
       {view === 'map' && (
-        <FiltersSheet filters={filters} onChange={onFiltersChange} activeCount={filtersActiveCount} />
+        <FiltersSheet filters={filters} onChange={onFiltersChange} activeCount={filtersActiveCount} availableModels={availableModels} />
       )}
 
       <Button
