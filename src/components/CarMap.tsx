@@ -6,9 +6,7 @@ import { formatDrive, formatZoneDistance, googleMapsUrl } from '../utils/geo'
 import type { DrivingRoute, LatLng, ZoneProximity } from '../utils/geo'
 import { formatElapsed, formatElapsedExact } from '../utils/time'
 import { formatPayout } from '../utils/payout'
-import type { Car, HeatmapCell, HistoryTimelineParkingEntry, RankedCar, ZoneShape } from '../types/api'
-
-type MapCar = Car | RankedCar
+import type { Car, HeatmapCell, HistoryTimelineParkingEntry, ZoneShape } from '../types/api'
 
 interface SelectedRoute {
   carId: number
@@ -51,29 +49,41 @@ const ZONE_STYLE = {
   fillOpacity: 0.32,
 }
 
-function carSideNumber(car: MapCar): number | null {
-  if (!('sideNumber' in car) || !car.sideNumber) return null
+function carSideNumber(car: Car): number | null {
   const n = parseInt(car.sideNumber, 10)
   return Number.isFinite(n) ? n : null
 }
 
-// Szary (najstarsze auto we flocie) do złotego (najnowsze) — ciągła skala wg
-// numeru bocznego, względna do aktualnie widocznych aut
-const AGE_OLD = [100, 116, 139] as const // slate-500
-const AGE_NEW = [250, 204, 21] as const // amber-400 (złoty)
+// Szary do złotego — ciągła skala wg numeru bocznego, względna do aktualnie
+// widocznych aut (sort "Najnowsze auto")
+const FLEET_OLD = [100, 116, 139] as const // slate-500
+const FLEET_NEW = [250, 204, 21] as const // amber-400 (złoty)
 
-function ageColor(t: number) {
+// Niebieski (dopiero zaparkowane) do czerwonego (stoi najdłużej) — domyślna
+// skala w widoku wszystkich aut, względna do aktualnie widocznych postojów
+const STALE_FRESH = [56, 189, 248] as const // sky-400
+const STALE_OLD = [244, 63, 94] as const // rose-500
+
+function mixColor(from: readonly [number, number, number] | readonly number[], to: readonly number[], t: number) {
   const c = Math.max(0, Math.min(1, t))
-  const [r, g, b] = AGE_OLD.map((v, i) => Math.round(v + (AGE_NEW[i] - v) * c))
+  const [r, g, b] = from.map((v, i) => Math.round(v + (to[i] - v) * c))
   return `rgb(${r} ${g} ${b})`
 }
 
-function carIcon(car: MapCar, showAll: boolean, ageRange: { min: number; max: number } | null) {
+const fleetColor = (t: number) => mixColor(FLEET_OLD, FLEET_NEW, t)
+const staleColor = (t: number) => mixColor(STALE_FRESH, STALE_OLD, t)
+
+function carIcon(
+  car: Car,
+  showAll: boolean,
+  ageRange: { min: number; max: number } | null,
+  staleRange: { min: number; max: number } | null,
+) {
   if (ageRange) {
     const side = carSideNumber(car)
     if (side != null) {
       const t = ageRange.max > ageRange.min ? (side - ageRange.min) / (ageRange.max - ageRange.min) : 1
-      const color = ageColor(t)
+      const color = fleetColor(t)
       return divIcon({
         className: 'car-pin-wrap',
         html: `<span class="car-pin" style="--pin-bg:${color};--pin-dot:${color}">${side}</span>`,
@@ -82,9 +92,20 @@ function carIcon(car: MapCar, showAll: boolean, ageRange: { min: number; max: nu
       })
     }
   }
-  // Bez rabatu "0 zł" nic nie mówi — pokazujemy czas postoju (dotyczy też auta
-  // dorzuconego z rankingu, którego nie ma w przefiltrowanym feedzie)
-  const discountSum = 'discountSum' in car ? car.discountSum : undefined
+  if (staleRange) {
+    const mins = (Date.now() - Date.parse(car.parkedSince)) / 60000
+    const t = staleRange.max > staleRange.min ? (mins - staleRange.min) / (staleRange.max - staleRange.min) : 1
+    const color = staleColor(t)
+    const label = formatElapsed(car.parkedSince)
+    return divIcon({
+      className: 'car-pin-wrap',
+      html: `<span class="car-pin" style="--pin-bg:${color};--pin-dot:${color}">${label}</span>`,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
+    })
+  }
+  // Bez rabatu "0 zł" nic nie mówi — pokazujemy czas postoju
+  const discountSum = car.discountSum
   const showTime = showAll || !discountSum
   const label = showTime ? formatElapsed(car.parkedSince) : `${discountSum} zł`
   const cls = showTime && !discountSum ? 'car-pin time' : 'car-pin'
@@ -131,7 +152,7 @@ const ROUTE_STYLE = {
 // Po wyborze auta dopasuj widok: do trasy gdy jest (lub nadejdzie za moment),
 // inaczej do samego auta. `expectRoute` zapobiega dwustopniowemu zoomowi:
 // nie robimy flyTo do auta, skoro zaraz i tak przyjdzie fitBounds trasy.
-function FitSelection({ route, car, expectRoute, mapPadding }: { route: SelectedRoute | null; car: MapCar | null; expectRoute: boolean; mapPadding: MapPadding }) {
+function FitSelection({ route, car, expectRoute, mapPadding }: { route: SelectedRoute | null; car: Car | null; expectRoute: boolean; mapPadding: MapPadding }) {
   const map = useMap()
   useEffect(() => {
     if (route?.coords?.length && route.carId === car?.id) {
@@ -161,7 +182,7 @@ function PopupSync({ selectedCarId, markerRefs }: { selectedCarId: number | null
 // wszystkie auta — zamiast trzymać stały zoom, który przy dużych miastach
 // pokazywał tylko fragment. Działa raz na zmianę strefy (ref po zoneKey),
 // kolejne odświeżenia feedu (co 60 s) nie ruszają już kamery.
-function FitCity({ cars, zoneKey, mapPadding }: { cars: MapCar[]; zoneKey: string; mapPadding: MapPadding }) {
+function FitCity({ cars, zoneKey, mapPadding }: { cars: Car[]; zoneKey: string; mapPadding: MapPadding }) {
   const map = useMap()
   const fitForRef = useRef<string | null>(null)
   useEffect(() => {
@@ -209,7 +230,7 @@ function FollowGuard({ onManualDrag }: { onManualDrag: () => void }) {
 }
 
 interface CarMapProps {
-  cars: MapCar[]
+  cars: Car[]
   center: [number, number]
   zoom?: number
   userPosition: (LatLng & { heading: number | null }) | null
@@ -220,10 +241,11 @@ interface CarMapProps {
   zoneDistances: Map<number, ZoneProximity> | null
   drivingRoutes: Map<number, DrivingRoute> | null
   payouts: Map<number, number> | null
-  selectedCar: MapCar | null
+  models?: Map<number, { name: string; type: number }> | null
+  selectedCar: Car | null
   selectedRoute: SelectedRoute | null
-  onSelect?: (car: MapCar) => void
-  onShowHistory?: (car: MapCar) => void
+  onSelect?: (car: Car) => void
+  onShowHistory?: (car: Car) => void
   historyTimeline: HistoryTimelineParkingEntry[] | null
   heatmapCells: HeatmapCell[] | null
   zoneKey: string
@@ -231,7 +253,7 @@ interface CarMapProps {
   mapPadding?: MapPadding
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, ageColorActive = false, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey, onManualDrag, mapPadding = ZERO_PADDING }: CarMapProps) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, ageColorActive = false, zoneDistances, drivingRoutes, payouts, models, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey, onManualDrag, mapPadding = ZERO_PADDING }: CarMapProps) {
   const markerRefs = useRef(new Map<number, LeafletMarker>())
   const maxHeatWeight = heatmapCells?.length ? Math.max(...heatmapCells.map((c) => c.minutesParked)) : 0
 
@@ -244,7 +266,17 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
     return { min: Math.min(...nums), max: Math.max(...nums) }
   }, [cars, ageColorActive])
 
-  const zoneLabel = (car: MapCar) => {
+  // Domyślna skala w widoku wszystkich aut: czas postoju względny do
+  // aktualnie widocznego zestawu — nieaktywna, gdy koloruje "Najnowsze auto"
+  const staleRange = useMemo(() => {
+    if (ageColorActive || !showAll) return null
+    const now = Date.now()
+    const mins = cars.map((c) => (now - Date.parse(c.parkedSince)) / 60000)
+    if (!mins.length) return null
+    return { min: Math.min(...mins), max: Math.max(...mins) }
+  }, [cars, showAll, ageColorActive])
+
+  const zoneLabel = (car: Car) => {
     const prox = zoneDistances?.get(car.id)
     if (!prox) return null
     if (prox.km === 0) return 'w strefie'
@@ -253,7 +285,8 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
   }
 
   return (
-    <MapContainer center={center} zoom={zoom} className="car-map h-full w-full">
+    <>
+      <MapContainer center={center} zoom={zoom} className="car-map h-full w-full">
       <Recenter center={center} zoom={zoom} mapPadding={mapPadding} />
       {onManualDrag && <FollowGuard onManualDrag={onManualDrag} />}
       <FitCity cars={cars} zoneKey={zoneKey} mapPadding={mapPadding} />
@@ -322,7 +355,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
         <Marker
           key={car.id}
           position={[car.lat, car.lng]}
-          icon={carIcon(car, showAll, ageRange)}
+          icon={carIcon(car, showAll, ageRange, staleRange)}
           ref={(el) => {
             if (el) markerRefs.current.set(car.id, el)
             else markerRefs.current.delete(car.id)
@@ -332,17 +365,28 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
           <Popup>
             <div className="popup">
               <strong>{car.regPlate}</strong>
+              {models?.get(car.modelId)?.name && (
+                <>
+                  {' '}
+                  · {models.get(car.modelId)!.name}
+                </>
+              )}
+              {' '}· #{car.sideNumber}
               <br />
               {car.location}
               <br />
               Paliwo: {car.fuel}% · Zasięg: {car.range} km
               <br />
-              {'discountSum' in car && car.discountSum ? (
+              {car.discounts.length > 0 && (
                 <>
-                  Rabat: {car.discountSum} zł
-                  <br />
+                  {car.discounts.map((d, i) => (
+                    <span key={i}>
+                      {d.name}: {d.amount} zł
+                      <br />
+                    </span>
+                  ))}
                 </>
-              ) : null}
+              )}
               Stoi od: {formatElapsedExact(car.parkedSince)}
               <br />
               {zoneLabel(car) && (
@@ -381,6 +425,27 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
           </Popup>
         </Marker>
       ))}
-    </MapContainer>
+      </MapContainer>
+      {ageRange && (
+        <div className="pointer-events-none absolute left-14 top-3 z-[1100] flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur">
+          <span>najstarsze</span>
+          <span
+            className="h-2 w-16 rounded-full"
+            style={{ background: `linear-gradient(to right, ${fleetColor(0)}, ${fleetColor(1)})` }}
+          />
+          <span>najnowsze</span>
+        </div>
+      )}
+      {!ageRange && staleRange && (
+        <div className="pointer-events-none absolute left-14 top-3 z-[1100] flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur">
+          <span>świeżo zaparkowane</span>
+          <span
+            className="h-2 w-16 rounded-full"
+            style={{ background: `linear-gradient(to right, ${staleColor(0)}, ${staleColor(1)})` }}
+          />
+          <span>stoi najdłużej</span>
+        </div>
+      )}
+    </>
   )
 }

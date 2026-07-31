@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { formatDrive, formatZoneDistance, haversineDistanceKm } from '../utils/geo'
 import type { DrivingRoute, LatLng, ZoneProximity } from '../utils/geo'
 import { CarRow } from './CarRow'
 import type { Car } from '../types/api'
 
 type SortId = 'distance' | 'discount' | 'payout' | 'zone' | 'stale' | 'age'
+
+const DEFAULT_SORT: SortId = 'distance'
 
 interface CarListProps {
   cars: Car[]
@@ -14,20 +16,11 @@ interface CarListProps {
   zoneDistances: Map<number, ZoneProximity> | null
   drivingRoutes: Map<number, DrivingRoute> | null
   payouts: Map<number, number> | null
+  models?: Map<number, { name: string; type: number }> | null
   onSelect?: (car: Car) => void
   selectedCarId: number | null
   sortBy: SortId
   onSortChange: (sortBy: SortId) => void
-  onOpenRanking: () => void
-}
-
-function RankingIcon() {
-  return (
-    <svg className="go-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
 }
 
 const SORTS: { id: SortId; label: string; showAllOnly?: boolean }[] = [
@@ -45,9 +38,23 @@ export function carSideNumber(car: Car): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, selectedCarId, sortBy, onSortChange, onOpenRanking }: CarListProps) {
+export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, models, onSelect, selectedCarId, sortBy, onSortChange }: CarListProps) {
   // "Najdłużej stoi" ma sens tylko przy widoku wszystkich aut — poza nim wróć do domyślnego
   const activeSort: SortId = sortBy === 'stale' && !showAll ? 'distance' : sortBy
+  const [dir, setDir] = useState<1 | -1>(1)
+
+  // 1. klik: sortuj rosnąco · 2. klik: malejąco · 3. klik: wyjdź z filtra (wróć do domyślnego)
+  const handleChipClick = (id: SortId) => {
+    if (id !== activeSort) {
+      setDir(1)
+      onSortChange(id)
+    } else if (dir === 1) {
+      setDir(-1)
+    } else {
+      setDir(1)
+      if (id !== DEFAULT_SORT) onSortChange(DEFAULT_SORT)
+    }
+  }
 
   const sorted = useMemo(() => {
     const distTo = (car: Car) =>
@@ -69,8 +76,8 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
       age: (a, b) => (carSideNumber(b) ?? -Infinity) - (carSideNumber(a) ?? -Infinity) || distTo(a) - distTo(b),
     }
 
-    return [...cars].sort(cmp[activeSort])
-  }, [cars, origin, activeSort, zoneDistances, drivingRoutes, payouts])
+    return [...cars].sort((a, b) => cmp[activeSort](a, b) * dir)
+  }, [cars, origin, activeSort, dir, zoneDistances, drivingRoutes, payouts])
 
   // Trasa autem gdy już policzona, wcześniej dystans w linii prostej
   const zoneLabel = (car: Car) => {
@@ -90,14 +97,12 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
           role="tab"
           aria-selected={activeSort === s.id}
           className={`sort-chip${activeSort === s.id ? ' active' : ''}`}
-          onClick={() => onSortChange(s.id)}
+          onClick={() => handleChipClick(s.id)}
         >
           {s.label}
+          {activeSort === s.id && <span className="ml-1">{dir === 1 ? '↑' : '↓'}</span>}
         </button>
       ))}
-      <button type="button" className="sort-chip inline-flex items-center gap-1" onClick={onOpenRanking}>
-        <RankingIcon /> Ranking
-      </button>
     </div>
   )
 
@@ -135,6 +140,7 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
               payout={payouts?.get(car.id) ?? null}
               distanceKm={origin ? haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng) : null}
               zoneLabel={zoneLabel(car)}
+              modelName={models?.get(car.modelId)?.name ?? null}
               selected={car.id === selectedCarId}
               onClick={() => onSelect?.(car)}
             />
