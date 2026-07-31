@@ -151,7 +151,7 @@ function App() {
 
   const [historyTimeline, setHistoryTimeline] = useState<HistoryTimelineParkingEntry[] | null>(null)
   // Stan sortowań i filtrów zostaje poza stosem — musi przetrwać nawigację między warstwami
-  const [listSort, setListSort] = useState<'distance' | 'discount' | 'payout' | 'zone' | 'stale'>('distance')
+  const [listSort, setListSort] = useState<'distance' | 'discount' | 'payout' | 'zone' | 'stale' | 'age'>('distance')
   const [rankingOrder, setRankingOrder] = useState<'asc' | 'desc'>('desc')
   const [selectedRoute, setSelectedRoute] = useState<{ carId: number; coords: number[][] } | null>(null)
   const [view, setView] = useState<'map' | 'stats'>('map')
@@ -346,6 +346,7 @@ function App() {
           relocationZone={zoneOn ? relocationZone : null}
           relocationZoneVersion={relocationZoneVersion}
           showAll={effectiveShowAll}
+          ageColorActive={listSort === 'age'}
           zoneDistances={zoneDistances}
           drivingRoutes={drivingRoutes}
           payouts={payouts}

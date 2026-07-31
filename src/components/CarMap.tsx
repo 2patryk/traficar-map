@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { CircleMarker, GeoJSON, MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import { divIcon, type Map as LeafletMap, type Marker as LeafletMarker } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -51,7 +51,37 @@ const ZONE_STYLE = {
   fillOpacity: 0.32,
 }
 
-function carIcon(car: MapCar, showAll: boolean) {
+function carSideNumber(car: MapCar): number | null {
+  if (!('sideNumber' in car) || !car.sideNumber) return null
+  const n = parseInt(car.sideNumber, 10)
+  return Number.isFinite(n) ? n : null
+}
+
+// Szary (najstarsze auto we flocie) do złotego (najnowsze) — ciągła skala wg
+// numeru bocznego, względna do aktualnie widocznych aut
+const AGE_OLD = [100, 116, 139] as const // slate-500
+const AGE_NEW = [250, 204, 21] as const // amber-400 (złoty)
+
+function ageColor(t: number) {
+  const c = Math.max(0, Math.min(1, t))
+  const [r, g, b] = AGE_OLD.map((v, i) => Math.round(v + (AGE_NEW[i] - v) * c))
+  return `rgb(${r} ${g} ${b})`
+}
+
+function carIcon(car: MapCar, showAll: boolean, ageRange: { min: number; max: number } | null) {
+  if (ageRange) {
+    const side = carSideNumber(car)
+    if (side != null) {
+      const t = ageRange.max > ageRange.min ? (side - ageRange.min) / (ageRange.max - ageRange.min) : 1
+      const color = ageColor(t)
+      return divIcon({
+        className: 'car-pin-wrap',
+        html: `<span class="car-pin" style="--pin-bg:${color};--pin-dot:${color}">${side}</span>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      })
+    }
+  }
   // Bez rabatu "0 zł" nic nie mówi — pokazujemy czas postoju (dotyczy też auta
   // dorzuconego z rankingu, którego nie ma w przefiltrowanym feedzie)
   const discountSum = 'discountSum' in car ? car.discountSum : undefined
@@ -186,6 +216,7 @@ interface CarMapProps {
   relocationZone: ZoneShape | null
   relocationZoneVersion: number
   showAll: boolean
+  ageColorActive?: boolean
   zoneDistances: Map<number, ZoneProximity> | null
   drivingRoutes: Map<number, DrivingRoute> | null
   payouts: Map<number, number> | null
@@ -200,9 +231,18 @@ interface CarMapProps {
   mapPadding?: MapPadding
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey, onManualDrag, mapPadding = ZERO_PADDING }: CarMapProps) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, ageColorActive = false, zoneDistances, drivingRoutes, payouts, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey, onManualDrag, mapPadding = ZERO_PADDING }: CarMapProps) {
   const markerRefs = useRef(new Map<number, LeafletMarker>())
   const maxHeatWeight = heatmapCells?.length ? Math.max(...heatmapCells.map((c) => c.minutesParked)) : 0
+
+  // Zakres numerów bocznych widocznych aut — skala koloru liczona względnie,
+  // żeby złoty/szary zawsze rozciągał się na cały widoczny zestaw
+  const ageRange = useMemo(() => {
+    if (!ageColorActive) return null
+    const nums = cars.map(carSideNumber).filter((n): n is number => n != null)
+    if (!nums.length) return null
+    return { min: Math.min(...nums), max: Math.max(...nums) }
+  }, [cars, ageColorActive])
 
   const zoneLabel = (car: MapCar) => {
     const prox = zoneDistances?.get(car.id)
@@ -282,7 +322,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
         <Marker
           key={car.id}
           position={[car.lat, car.lng]}
-          icon={carIcon(car, showAll)}
+          icon={carIcon(car, showAll, ageRange)}
           ref={(el) => {
             if (el) markerRefs.current.set(car.id, el)
             else markerRefs.current.delete(car.id)

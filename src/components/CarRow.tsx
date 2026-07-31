@@ -43,6 +43,7 @@ export function CarRow({ car, showAll, payout, distanceKm, zoneLabel, selected, 
       <div className="flex items-baseline gap-3">
         <span className={`font-mono text-2xl font-bold tabular-nums ${headlineClass}`}>{headline}</span>
         <span className="font-mono text-sm font-semibold text-foreground">{car.regPlate}</span>
+        <span className="font-mono text-xs text-muted-foreground">#{car.sideNumber}</span>
         {distanceKm != null && (
           <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
             {distanceKm.toFixed(1)} km

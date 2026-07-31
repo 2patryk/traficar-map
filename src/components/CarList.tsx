@@ -4,7 +4,7 @@ import type { DrivingRoute, LatLng, ZoneProximity } from '../utils/geo'
 import { CarRow } from './CarRow'
 import type { Car } from '../types/api'
 
-type SortId = 'distance' | 'discount' | 'payout' | 'zone' | 'stale'
+type SortId = 'distance' | 'discount' | 'payout' | 'zone' | 'stale' | 'age'
 
 interface CarListProps {
   cars: Car[]
@@ -36,7 +36,14 @@ const SORTS: { id: SortId; label: string; showAllOnly?: boolean }[] = [
   { id: 'payout', label: 'Szac. zwrot' },
   { id: 'zone', label: 'Blisko strefy' },
   { id: 'stale', label: 'Najdłużej stoi', showAllOnly: true },
+  { id: 'age', label: 'Najnowsze auto' },
 ]
+
+// Numer boczny to 4-cyfrowy identyfikator floty — im wyższy, tym nowsze auto
+export function carSideNumber(car: Car): number | null {
+  const n = parseInt(car.sideNumber, 10)
+  return Number.isFinite(n) ? n : null
+}
 
 export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, onSelect, selectedCarId, sortBy, onSortChange, onOpenRanking }: CarListProps) {
   // "Najdłużej stoi" ma sens tylko przy widoku wszystkich aut — poza nim wróć do domyślnego
@@ -59,6 +66,7 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
       payout: (a, b) => payout(b) - payout(a) || distTo(a) - distTo(b),
       zone: (a, b) => zoneKm(a) - zoneKm(b) || distTo(a) - distTo(b),
       stale: (a, b) => Date.parse(a.parkedSince) - Date.parse(b.parkedSince),
+      age: (a, b) => (carSideNumber(b) ?? -Infinity) - (carSideNumber(a) ?? -Infinity) || distTo(a) - distTo(b),
     }
 
     return [...cars].sort(cmp[activeSort])
