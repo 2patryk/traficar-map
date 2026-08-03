@@ -83,6 +83,9 @@ const statements = {
     'UPDATE parkings SET ended_at = @endedAt, end_reason = @endReason, uncertain = @uncertain, fuel_end = @fuelEnd ' +
       'WHERE id = @id'
   ),
+  reopenParking: db.prepare(
+    'UPDATE parkings SET ended_at = NULL, end_reason = NULL, uncertain = 0, fuel_end = NULL WHERE id = @id'
+  ),
   insertTrip: db.prepare(
     'INSERT INTO trips (car_id, from_parking, to_parking, departed_at, arrived_at, straight_km, fuel_delta, uncertain) ' +
       'VALUES (@carId, @fromParking, @toParking, @departedAt, @arrivedAt, @straightKm, @fuelDelta, @uncertain)'
@@ -147,6 +150,20 @@ function processZone(zoneId, apiCars, now, boundaryTime) {
 
     if (!open) {
       const prevParking = statements.lastClosedParking.get(car.id)
+      const gapDistance =
+        prevParking && prevParking.ended_at
+          ? haversineMeters(prevParking.lat, prevParking.lng, lat, lng)
+          : null
+
+      // Auto zniknęło z pollu i wróciło praktycznie w tym samym miejscu (nocna
+      // luka we flocie) — to nie jest przejazd, więc wznawiamy stary postój
+      // zamiast dzielić go na dwa oddzielone "zerowym" przejazdem.
+      if (gapDistance !== null && gapDistance < MOVE_THRESHOLD_M) {
+        statements.reopenParking.run({ id: prevParking.id })
+        applyDiscountDiff(car.id, prevParking.id, car.discounts, now)
+        continue
+      }
+
       const { id: parkingId } = statements.insertParking.get({
         carId: car.id,
         lat,
@@ -155,15 +172,14 @@ function processZone(zoneId, apiCars, now, boundaryTime) {
         startedAt: now,
         fuel: car.fuel ?? null,
       })
-      if (prevParking && prevParking.ended_at && haversineMeters(prevParking.lat, prevParking.lng, lat, lng) >= MOVE_THRESHOLD_M) {
-        const km = haversineMeters(prevParking.lat, prevParking.lng, lat, lng) / 1000
+      if (gapDistance !== null) {
         statements.insertTrip.run({
           carId: car.id,
           fromParking: prevParking.id,
           toParking: parkingId,
           departedAt: prevParking.ended_at,
           arrivedAt: now,
-          straightKm: km,
+          straightKm: gapDistance / 1000,
           fuelDelta: car.fuel != null && prevParking.fuel_end != null ? car.fuel - prevParking.fuel_end : null,
           uncertain: prevParking.uncertain,
         })
