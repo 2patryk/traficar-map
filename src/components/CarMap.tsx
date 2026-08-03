@@ -59,12 +59,13 @@ function carSideNumber(car: Car): number | null {
 const FLEET_OLD = [100, 116, 139] as const // slate-500
 const FLEET_NEW = [250, 204, 21] as const // amber-400 (złoty)
 
-// Zielony (dopiero zaparkowane) przez żółty i pomarańczowy do czerwonego
-// (stoi najdłużej) — domyślna skala w widoku wszystkich aut, względna do
-// aktualnie widocznych postojów. Cztery przystanki zamiast prostego
+// Niebieski (dopiero zaparkowane) przez zielony, żółty i pomarańczowy do
+// czerwonego (stoi najdłużej) — domyślna skala w widoku wszystkich aut,
+// względna do aktualnie widocznych postojów. Pięć przystanków zamiast prostego
 // dwukolorowego gradientu, przy którym środek skali wyglądał jednolicie
 // fioletowo-szaro i nie dało się odróżnić 1h od 4h postoju.
 const STALE_STOPS = [
+  [56, 189, 248], // sky-400
   [74, 222, 128], // green-400
   [250, 204, 21], // yellow-400
   [249, 115, 22], // orange-500
@@ -465,7 +466,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
           <span
             className="h-2 w-16 rounded-full"
             style={{
-              background: `linear-gradient(to right, ${staleColor(0)}, ${staleColor(1 / 3)}, ${staleColor(2 / 3)}, ${staleColor(1)})`,
+              background: `linear-gradient(to right, ${staleColor(0)}, ${staleColor(0.25)}, ${staleColor(0.5)}, ${staleColor(0.75)}, ${staleColor(1)})`,
             }}
           />
           <span>stoi najdłużej</span>
