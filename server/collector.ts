@@ -155,7 +155,7 @@ function processZone(zoneId, apiCars, now, boundaryTime) {
         startedAt: now,
         fuel: car.fuel ?? null,
       })
-      if (prevParking && prevParking.ended_at) {
+      if (prevParking && prevParking.ended_at && haversineMeters(prevParking.lat, prevParking.lng, lat, lng) >= MOVE_THRESHOLD_M) {
         const km = haversineMeters(prevParking.lat, prevParking.lng, lat, lng) / 1000
         statements.insertTrip.run({
           carId: car.id,
