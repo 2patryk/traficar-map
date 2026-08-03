@@ -62,6 +62,9 @@ const doMerges = () => {
           relinkDiscounts.run({ newId: anchor.id, oldId: next.id })
           relinkTripsFrom.run({ newId: anchor.id, oldId: next.id })
           relinkTripsTo.run({ newId: anchor.id, oldId: next.id })
+          // delete najpierw — inaczej UPDATE poniżej chwilowo tworzy dwa
+          // otwarte postoje tego samego auta i łamie unique index
+          deleteParking.run(next.id)
           mergeParking.run({
             id: anchor.id,
             endedAt: next.ended_at,
@@ -69,7 +72,6 @@ const doMerges = () => {
             uncertain: next.uncertain,
             fuelEnd: next.fuel_end,
           })
-          deleteParking.run(next.id)
           // anchor scalony w bazie — dociągamy świeży stan zamiast trzymać stary obiekt
           anchor = { ...anchor, ended_at: next.ended_at, end_reason: next.end_reason, fuel_end: next.fuel_end }
         }
