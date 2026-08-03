@@ -59,10 +59,13 @@ function carSideNumber(car: Car): number | null {
 const FLEET_OLD = [100, 116, 139] as const // slate-500
 const FLEET_NEW = [250, 204, 21] as const // amber-400 (złoty)
 
-// Niebieski (dopiero zaparkowane) do czerwonego (stoi najdłużej) — domyślna
-// skala w widoku wszystkich aut, względna do aktualnie widocznych postojów
-const STALE_FRESH = [56, 189, 248] as const // sky-400
-const STALE_OLD = [244, 63, 94] as const // rose-500
+// Zielony (dopiero zaparkowane) przez żółty do czerwonego (stoi najdłużej) —
+// domyślna skala w widoku wszystkich aut, względna do aktualnie widocznych
+// postojów. Trzy przystanki dają wyraźniejszy kontrast niż prosty gradient
+// dwukolorowy, przy którym środek skali wyglądał jednolicie fioletowo-szaro.
+const STALE_FRESH = [74, 222, 128] as const // green-400
+const STALE_MID = [250, 204, 21] as const // yellow-400
+const STALE_OLD = [239, 68, 68] as const // red-500
 
 function mixColor(from: readonly [number, number, number] | readonly number[], to: readonly number[], t: number) {
   const c = Math.max(0, Math.min(1, t))
@@ -71,7 +74,10 @@ function mixColor(from: readonly [number, number, number] | readonly number[], t
 }
 
 const fleetColor = (t: number) => mixColor(FLEET_OLD, FLEET_NEW, t)
-const staleColor = (t: number) => mixColor(STALE_FRESH, STALE_OLD, t)
+const staleColor = (t: number) => {
+  const c = Math.max(0, Math.min(1, t))
+  return c < 0.5 ? mixColor(STALE_FRESH, STALE_MID, c * 2) : mixColor(STALE_MID, STALE_OLD, (c - 0.5) * 2)
+}
 
 function carIcon(
   car: Car,
@@ -216,9 +222,16 @@ function FitHistory({ timeline, mapPadding }: { timeline: HistoryTimelineParking
 
 function Recenter({ center, zoom, mapPadding }: { center: [number, number]; zoom: number; mapPadding: MapPadding }) {
   const map = useMap()
+  const zoomedRef = useRef(false)
   useEffect(() => {
-    flyToVisible(map, center, zoom, mapPadding, 0.6)
-  }, [center, zoom, map, mapPadding])
+    // Po pierwszym ustawieniu zoomu trzymamy aktualny zoom mapy — inaczej
+    // każda aktualizacja lokalizacji (fix/follow) wymuszałaby powrót do `zoom`
+    // domyślnego, cofając ręczne przybliżenie użytkownika do ulic.
+    const targetZoom = zoomedRef.current ? map.getZoom() : zoom
+    zoomedRef.current = true
+    flyToVisible(map, center, targetZoom, mapPadding, 0.6)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `zoom` celowo pominięty poza pierwszym użyciem, patrz komentarz wyżej
+  }, [center, map, mapPadding])
   return null
 }
 
@@ -306,6 +319,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        maxZoom={19}
       />
       {relocationZone && (
         <GeoJSON key={relocationZoneVersion} data={relocationZone} style={ZONE_STYLE} />
@@ -441,7 +455,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
           <span>świeżo zaparkowane</span>
           <span
             className="h-2 w-16 rounded-full"
-            style={{ background: `linear-gradient(to right, ${staleColor(0)}, ${staleColor(1)})` }}
+            style={{ background: `linear-gradient(to right, ${staleColor(0)}, ${staleColor(0.5)}, ${staleColor(1)})` }}
           />
           <span>stoi najdłużej</span>
         </div>
