@@ -65,7 +65,7 @@ export function CarDetail({ car, payout, route, proximity, modelName, onClose, o
         {modelName && <span className="ml-auto text-sm text-muted-foreground">{modelName}</span>}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4" data-base-ui-swipe-ignore>
         <div>
           <div
             className={`font-mono text-4xl font-bold tabular-nums ${

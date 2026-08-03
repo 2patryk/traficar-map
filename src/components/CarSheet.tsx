@@ -15,10 +15,18 @@ interface CarSheetProps {
 }
 
 // Trwały dolny sheet (mobile) — nigdy się nie zamyka, tylko zmienia snap.
-// Uchwyt przeciągania jest osobnym elementem (DrawerSwipeHandle), a treść ma
-// data-base-ui-swipe-ignore, żeby scroll listy nie był brany za gest resize.
+// Uchwyt przeciągania jest osobnym elementem (DrawerSwipeHandle), ale
+// data-base-ui-swipe-ignore leży teraz na samych scrollowalnych listach
+// (.car-list, CarDetail) zamiast na całym children — dzięki temu górna część
+// panelu (pasek sortowania, nagłówek) też łapie gest przeciągania, tak jak
+// intuicyjnie próbuje to robić kciuk, zamiast tylko wąskiego uchwytu.
 // snapPoint kontrolowany od góry — mapa musi znać wysokość sheetu, żeby
 // fitBounds/flyTo nie centrowały punktów pod nim.
+// snapToSequentialPoints: bez tego szybki swipe w dół ma twardy skrót w
+// Base UI — "duża prędkość + ruch w dół = zamknij drawer" — który dla
+// trwałego sheeta (nigdy się nie zamyka) zawsze kończył się wymuszonym
+// powrotem na środkowy punkt. Tryb sekwencyjny liczy tylko realny dystans
+// do najbliższego snap pointu, bez tego skrótu.
 export function CarSheet({ children, snapPoint, onSnapPointChange }: CarSheetProps) {
   return (
     <Drawer
@@ -28,13 +36,12 @@ export function CarSheet({ children, snapPoint, onSnapPointChange }: CarSheetPro
       disablePointerDismissal
       showSwipeHandle
       snapPoints={SNAP_POINTS}
+      snapToSequentialPoints
       snapPoint={snapPoint}
       onSnapPointChange={(v) => onSnapPointChange((v as number | null) ?? SNAP_POINTS[2])}
     >
       <DrawerContent className="mx-auto max-w-none rounded-t-2xl border-t border-border bg-popover shadow-2xl focus:outline-none">
-        <div data-base-ui-swipe-ignore className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {children}
-        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
       </DrawerContent>
     </Drawer>
   )

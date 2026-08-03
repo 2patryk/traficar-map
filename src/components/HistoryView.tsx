@@ -79,7 +79,7 @@ export function HistoryView({ carId, regPlate, onClose, onData }: HistoryViewPro
           {data.timeline.length === 0 ? (
             <p className="empty-state">Brak zarejestrowanych postojów w tym okresie.</p>
           ) : (
-            <ul className="car-list history-list">
+            <ul className="car-list history-list" data-base-ui-swipe-ignore>
               {data.timeline.map((entry, i) => (
                 <li key={i}>
                   {entry.type === 'parking' ? (

@@ -131,7 +131,7 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
   return (
     <div className="list-pane">
       {toolbar}
-      <ul className="car-list">
+      <ul className="car-list" data-base-ui-swipe-ignore>
         {sorted.map((car) => (
           <li key={car.id}>
             <CarRow
