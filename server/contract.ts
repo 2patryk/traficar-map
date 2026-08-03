@@ -7,6 +7,7 @@
 export interface Discount {
   name: string
   amount: number
+  since: string
 }
 
 export interface Car {

@@ -110,9 +110,12 @@ export function CarDetail({ car, payout, route, proximity, modelName, onClose, o
               <dt className="text-muted-foreground">Rabaty</dt>
               <dd className="text-foreground">
                 {car.discounts.map((d, i) => (
-                  <div key={i} className="flex justify-between font-mono">
-                    <span>{d.name}</span>
-                    <span>{d.amount} zł</span>
+                  <div key={i} className="flex justify-between gap-2 font-mono">
+                    <span>
+                      {d.name}
+                      <span className="ml-1.5 text-xs text-muted-foreground">od {formatElapsedExact(d.since)}</span>
+                    </span>
+                    <span className="whitespace-nowrap">{d.amount} zł</span>
                   </div>
                 ))}
               </dd>

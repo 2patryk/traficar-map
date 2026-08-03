@@ -38,7 +38,7 @@ const statements = {
     WHERE c.zone_id = ?
   `),
   discountsForCar: db.prepare(`
-    SELECT type AS name, amount FROM discount_spans
+    SELECT type AS name, amount, started_at AS since FROM discount_spans
     WHERE parking_id = (SELECT id FROM parkings WHERE car_id = ? AND ended_at IS NULL)
       AND ended_at IS NULL
   `),
