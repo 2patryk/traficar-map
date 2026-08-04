@@ -15,6 +15,7 @@ interface CarDetailProps {
   route: DrivingRoute | null
   proximity: ZoneProximity | null
   modelName: string | null
+  kmDriven: number | null
   onClose: () => void
   onShowHistory: () => void
 }
@@ -44,7 +45,7 @@ function HistoryIcon() {
   )
 }
 
-export function CarDetail({ car, payout, route, proximity, modelName, onClose, onShowHistory }: CarDetailProps) {
+export function CarDetail({ car, payout, route, proximity, modelName, kmDriven, onClose, onShowHistory }: CarDetailProps) {
   const zoneText =
     proximity == null
       ? null
@@ -99,6 +100,12 @@ export function CarDetail({ car, payout, route, proximity, modelName, onClose, o
             <dt className="text-muted-foreground">Zasięg</dt>
             <dd className="font-mono text-foreground">{car.range} km</dd>
           </div>
+          {kmDriven != null && (
+            <div>
+              <dt className="text-muted-foreground">Przejechano (30 dni)</dt>
+              <dd className="font-mono text-foreground">{Math.round(kmDriven)} km</dd>
+            </div>
+          )}
           {zoneText && (
             <div className="col-span-2">
               <dt className="text-muted-foreground">Strefa relokacji</dt>

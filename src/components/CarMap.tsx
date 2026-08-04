@@ -89,12 +89,31 @@ function mixColorStops(stops: readonly (readonly number[])[], t: number) {
 const fleetColor = (t: number) => mixColor(FLEET_OLD, FLEET_NEW, t)
 const staleColor = (t: number) => mixColorStops(STALE_STOPS, t)
 
+// Szary do czerwonego — skala wg km przejechanych (linia prosta, 30 dni),
+// względna do aktualnie widocznych aut (sort "Najwięcej km")
+const KM_LOW = [100, 116, 139] as const // slate-500
+const KM_HIGH = [239, 68, 68] as const // red-500
+const kmColor = (t: number) => mixColor(KM_LOW, KM_HIGH, t)
+
 function carIcon(
   car: Car,
   showAll: boolean,
   ageRange: { min: number; max: number } | null,
   staleRange: { min: number; max: number } | null,
+  kmInfo: { range: { min: number; max: number }; values: Map<number, number> | null | undefined } | null,
 ) {
+  if (kmInfo) {
+    const km = kmInfo.values?.get(car.id) ?? 0
+    const { min, max } = kmInfo.range
+    const t = max > min ? (km - min) / (max - min) : 1
+    const color = kmColor(t)
+    return divIcon({
+      className: 'car-pin-wrap',
+      html: `<span class="car-pin" style="--pin-bg:${color};--pin-dot:${color}">${Math.round(km)} km</span>`,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
+    })
+  }
   if (ageRange) {
     const side = carSideNumber(car)
     if (side != null) {
@@ -261,6 +280,8 @@ interface CarMapProps {
   relocationZoneVersion: number
   showAll: boolean
   ageColorActive?: boolean
+  kmColorActive?: boolean
+  kmDriven?: Map<number, number> | null
   zoneDistances: Map<number, ZoneProximity> | null
   drivingRoutes: Map<number, DrivingRoute> | null
   payouts: Map<number, number> | null
@@ -276,7 +297,7 @@ interface CarMapProps {
   mapPadding?: MapPadding
 }
 
-export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, ageColorActive = false, zoneDistances, drivingRoutes, payouts, models, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey, onManualDrag, mapPadding = ZERO_PADDING }: CarMapProps) {
+export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, relocationZoneVersion, showAll, ageColorActive = false, kmColorActive = false, kmDriven, zoneDistances, drivingRoutes, payouts, models, selectedCar, selectedRoute, onSelect, onShowHistory, historyTimeline, heatmapCells, zoneKey, onManualDrag, mapPadding = ZERO_PADDING }: CarMapProps) {
   const markerRefs = useRef(new Map<number, LeafletMarker>())
   const maxHeatWeight = heatmapCells?.length ? Math.max(...heatmapCells.map((c) => c.minutesParked)) : 0
 
@@ -290,14 +311,23 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
   }, [cars, ageColorActive])
 
   // Domyślna skala w widoku wszystkich aut: czas postoju względny do
-  // aktualnie widocznego zestawu — nieaktywna, gdy koloruje "Najnowsze auto"
+  // aktualnie widocznego zestawu — nieaktywna, gdy koloruje "Najnowsze auto" / "Najwięcej km"
   const staleRange = useMemo(() => {
-    if (ageColorActive || !showAll) return null
+    if (ageColorActive || kmColorActive || !showAll) return null
     const now = Date.now()
     const mins = cars.map((c) => (now - Date.parse(c.parkedSince)) / 60000)
     if (!mins.length) return null
     return { min: Math.min(...mins), max: Math.max(...mins) }
-  }, [cars, showAll, ageColorActive])
+  }, [cars, showAll, ageColorActive, kmColorActive])
+
+  // Zakres km (30 dni, linia prosta) widocznych aut — skala koloru względna,
+  // brakujące auto liczone jako 0 km
+  const kmRange = useMemo(() => {
+    if (!kmColorActive) return null
+    const vals = cars.map((c) => kmDriven?.get(c.id) ?? 0)
+    if (!vals.length) return null
+    return { min: Math.min(...vals), max: Math.max(...vals) }
+  }, [cars, kmColorActive, kmDriven])
 
   const zoneLabel = (car: Car) => {
     const prox = zoneDistances?.get(car.id)
@@ -379,7 +409,7 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
         <Marker
           key={car.id}
           position={[car.lat, car.lng]}
-          icon={carIcon(car, showAll, ageRange, staleRange)}
+          icon={carIcon(car, showAll, ageRange, staleRange, kmRange ? { range: kmRange, values: kmDriven } : null)}
           ref={(el) => {
             if (el) markerRefs.current.set(car.id, el)
             else markerRefs.current.delete(car.id)
@@ -416,6 +446,12 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
               {zoneLabel(car) && (
                 <>
                   Strefa: {zoneLabel(car)}
+                  <br />
+                </>
+              )}
+              {kmDriven?.has(car.id) && (
+                <>
+                  Przejechano (30 dni): <strong>{Math.round(kmDriven.get(car.id)!)} km</strong>
                   <br />
                 </>
               )}
@@ -460,7 +496,17 @@ export function CarMap({ cars, center, zoom = 13, userPosition, relocationZone, 
           <span>najnowsze</span>
         </div>
       )}
-      {!ageRange && staleRange && (
+      {!ageRange && kmRange && (
+        <div className="pointer-events-none absolute left-14 top-3 z-[1100] flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur">
+          <span>mniej km</span>
+          <span
+            className="h-2 w-16 rounded-full"
+            style={{ background: `linear-gradient(to right, ${kmColor(0)}, ${kmColor(1)})` }}
+          />
+          <span>więcej km</span>
+        </div>
+      )}
+      {!ageRange && !kmRange && staleRange && (
         <div className="pointer-events-none absolute left-14 top-3 z-[1100] flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur">
           <span>świeżo zaparkowane</span>
           <span

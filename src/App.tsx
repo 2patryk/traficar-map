@@ -367,6 +367,8 @@ function App() {
           relocationZoneVersion={relocationZoneVersion}
           showAll={effectiveShowAll}
           ageColorActive={listSort === 'age'}
+          kmColorActive={listSort === 'km'}
+          kmDriven={kmDriven}
           zoneDistances={zoneDistances}
           drivingRoutes={drivingRoutes}
           payouts={payouts}
@@ -409,6 +411,7 @@ function App() {
             route={drivingRoutes?.get(top.car.id) ?? null}
             proximity={zoneDistances?.get(top.car.id) ?? null}
             modelName={models?.get(top.car.modelId)?.name ?? null}
+            kmDriven={kmDriven?.get(top.car.id) ?? null}
             onClose={pop}
             onShowHistory={() => showHistory(top.car)}
           />
