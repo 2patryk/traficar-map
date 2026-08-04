@@ -4,7 +4,7 @@ import type { DrivingRoute, LatLng, ZoneProximity } from '../utils/geo'
 import { CarRow } from './CarRow'
 import type { Car } from '../types/api'
 
-type SortId = 'distance' | 'discount' | 'payout' | 'zone' | 'stale' | 'age'
+type SortId = 'distance' | 'discount' | 'payout' | 'zone' | 'stale' | 'age' | 'km'
 
 const DEFAULT_SORT: SortId = 'distance'
 
@@ -17,6 +17,7 @@ interface CarListProps {
   drivingRoutes: Map<number, DrivingRoute> | null
   payouts: Map<number, number> | null
   models?: Map<number, { name: string; type: number }> | null
+  kmDriven?: Map<number, number> | null
   onSelect?: (car: Car) => void
   selectedCarId: number | null
   sortBy: SortId
@@ -30,6 +31,7 @@ const SORTS: { id: SortId; label: string; showAllOnly?: boolean }[] = [
   { id: 'zone', label: 'Blisko strefy' },
   { id: 'stale', label: 'Najdłużej stoi', showAllOnly: true },
   { id: 'age', label: 'Najnowsze auto' },
+  { id: 'km', label: 'Najwięcej km' },
 ]
 
 // Numer boczny to 4-cyfrowy identyfikator floty — im wyższy, tym nowsze auto
@@ -38,7 +40,7 @@ export function carSideNumber(car: Car): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, models, onSelect, selectedCarId, sortBy, onSortChange }: CarListProps) {
+export function CarList({ cars, origin, loading, showAll, zoneDistances, drivingRoutes, payouts, models, kmDriven, onSelect, selectedCarId, sortBy, onSortChange }: CarListProps) {
   // "Najdłużej stoi" ma sens tylko przy widoku wszystkich aut — poza nim wróć do domyślnego
   const activeSort: SortId = sortBy === 'stale' && !showAll ? 'distance' : sortBy
   const [dir, setDir] = useState<1 | -1>(1)
@@ -66,6 +68,7 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
       return drivingRoutes?.get(car.id)?.km ?? prox.km
     }
     const payout = (car: Car) => (payouts?.has(car.id) ? payouts.get(car.id)! : -Infinity)
+    const km = (car: Car) => kmDriven?.get(car.id) ?? -Infinity
 
     const cmp: Record<SortId, (a: Car, b: Car) => number> = {
       distance: (a, b) => distTo(a) - distTo(b),
@@ -74,10 +77,11 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
       zone: (a, b) => zoneKm(a) - zoneKm(b) || distTo(a) - distTo(b),
       stale: (a, b) => Date.parse(a.parkedSince) - Date.parse(b.parkedSince),
       age: (a, b) => (carSideNumber(b) ?? -Infinity) - (carSideNumber(a) ?? -Infinity) || distTo(a) - distTo(b),
+      km: (a, b) => km(b) - km(a) || distTo(a) - distTo(b),
     }
 
     return [...cars].sort((a, b) => cmp[activeSort](a, b) * dir)
-  }, [cars, origin, activeSort, dir, zoneDistances, drivingRoutes, payouts])
+  }, [cars, origin, activeSort, dir, zoneDistances, drivingRoutes, payouts, kmDriven])
 
   // Trasa autem gdy już policzona, wcześniej dystans w linii prostej
   const zoneLabel = (car: Car) => {
@@ -141,6 +145,7 @@ export function CarList({ cars, origin, loading, showAll, zoneDistances, driving
               distanceKm={origin ? haversineDistanceKm(origin.lat, origin.lng, car.lat, car.lng) : null}
               zoneLabel={zoneLabel(car)}
               modelName={models?.get(car.modelId)?.name ?? null}
+              kmDriven={activeSort === 'km' ? kmDriven?.get(car.id) ?? null : null}
               selected={car.id === selectedCarId}
               onClick={() => onSelect?.(car)}
             />

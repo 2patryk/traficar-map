@@ -53,6 +53,12 @@ export interface CarHistoryResponse {
   timeline: HistoryTimelineEntry[]
 }
 
+export interface KmDrivenResponse {
+  zoneId: number
+  days: number
+  cars: { carId: number; km: number }[]
+}
+
 export interface StatsHistoryPoint {
   bucket: string
   carsAvailable: number | null

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchCarModels, fetchHeatmap, fetchZones } from './api'
+import { fetchCarModels, fetchHeatmap, fetchKmDriven, fetchZones } from './api'
 import { relocationPayout } from './utils/payout'
 import { useCars } from './hooks/useCars'
 import { useGeolocation } from './hooks/useGeolocation'
@@ -161,7 +161,23 @@ function App() {
 
   const [historyTimeline, setHistoryTimeline] = useState<HistoryTimelineParkingEntry[] | null>(null)
   // Stan sortowań i filtrów zostaje poza stosem — musi przetrwać nawigację między warstwami
-  const [listSort, setListSort] = useState<'distance' | 'discount' | 'payout' | 'zone' | 'stale' | 'age'>('distance')
+  const [listSort, setListSort] = useState<'distance' | 'discount' | 'payout' | 'zone' | 'stale' | 'age' | 'km'>('distance')
+
+  // Suma km (linia prosta) z ostatnich 30 dni, per auto — do sortu "Najwięcej km"
+  const [kmDriven, setKmDriven] = useState<Map<number, number> | null>(null)
+  useEffect(() => {
+    if (!zoneId) {
+      setKmDriven(null)
+      return
+    }
+    let cancelled = false
+    fetchKmDriven(zoneId).then((map) => {
+      if (!cancelled) setKmDriven(map)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [zoneId])
   const [selectedRoute, setSelectedRoute] = useState<{ carId: number; coords: number[][] } | null>(null)
   const [view, setView] = useState<'map' | 'stats'>('map')
   const [heatmapOn, setHeatmapOn] = useState(false)
@@ -406,6 +422,7 @@ function App() {
             drivingRoutes={drivingRoutes}
             payouts={payouts}
             models={models}
+            kmDriven={kmDriven}
             onSelect={selectCar}
             selectedCarId={pinnedCar?.id ?? null}
             sortBy={listSort}

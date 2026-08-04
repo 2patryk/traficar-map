@@ -9,6 +9,7 @@ interface CarRowProps {
   distanceKm: number | null
   zoneLabel: string | null
   modelName: string | null
+  kmDriven?: number | null
   selected: boolean
   onClick: () => void
 }
@@ -16,7 +17,7 @@ interface CarRowProps {
 // Zwrot netto — nie kwota rabatu — jest tu główną liczbą: to ona mówi, czy
 // w ogóle opłaca się jechać. Rabat/czas postoju to tylko fallback, gdy
 // trasa do strefy jeszcze nie policzona (albo auto bez rabatu w trybie "wszystkie").
-export function CarRow({ car, showAll, payout, distanceKm, zoneLabel, modelName, selected, onClick }: CarRowProps) {
+export function CarRow({ car, showAll, payout, distanceKm, zoneLabel, modelName, kmDriven, selected, onClick }: CarRowProps) {
   const headline =
     payout != null
       ? formatPayout(payout)
@@ -54,6 +55,9 @@ export function CarRow({ car, showAll, payout, distanceKm, zoneLabel, modelName,
       {modelName && <div className="mt-0.5 text-xs text-muted-foreground">{modelName}</div>}
       <div className="mt-1 flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{car.location}</span>
+        {kmDriven != null && (
+          <span className="shrink-0 font-mono text-xs text-muted-foreground">{kmDriven.toFixed(0)} km (30d)</span>
+        )}
         {zoneLabel && (
           <span className="shrink-0 font-mono text-xs text-accent">{zoneLabel}</span>
         )}

@@ -5,6 +5,7 @@ import type {
   CarHistoryResponse,
   HealthResponse,
   HeatmapCell,
+  KmDrivenResponse,
   RankedCar,
   StatsHistoryResponse,
   StatsSummary,
@@ -61,6 +62,13 @@ const statements = {
     FROM trips
     WHERE car_id = ? AND departed_at >= ?
     ORDER BY departed_at DESC
+  `),
+  kmDrivenByZone: db.prepare(`
+    SELECT t.car_id AS carId, SUM(t.straight_km) AS km
+    FROM trips t
+    JOIN cars c ON c.id = t.car_id
+    WHERE c.zone_id = ? AND t.departed_at >= ?
+    GROUP BY t.car_id
   `),
   longestParked: db.prepare(`
     SELECT
@@ -179,6 +187,21 @@ fastify.get('/api/cars/:id/history', async (request, reply) => {
   const totalKm = trips.reduce((sum, t) => sum + (t.km ?? 0), 0)
 
   return { car, days, totalKm, timeline } satisfies CarHistoryResponse
+})
+
+fastify.get('/api/cars/km-driven', async (request, reply) => {
+  const { zoneId } = request.query as any
+  if (!zoneId) {
+    reply.code(400)
+    return { error: 'zoneId is required' }
+  }
+  const days = Math.min(90, Math.max(1, Number((request.query as any).days) || 30))
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+
+  const rows = statements.kmDrivenByZone.all(Number(zoneId), since)
+  const cars = rows.map((r) => ({ carId: r.carId, km: r.km ?? 0 }))
+
+  return { zoneId: Number(zoneId), days, cars } satisfies KmDrivenResponse
 })
 
 fastify.get('/api/stats/longest-parked', async (request, reply) => {

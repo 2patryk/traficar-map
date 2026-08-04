@@ -4,6 +4,7 @@ import type {
   CarModel,
   HealthResponse,
   HeatmapCell,
+  KmDrivenResponse,
   StatsHistoryResponse,
   StatsSummary,
   Zone,
@@ -69,6 +70,13 @@ export async function fetchCarHistory(carId: number, days = 30): Promise<CarHist
   const res = await fetch(`/api/cars/${carId}/history?days=${days}`)
   if (!res.ok) throw new Error(`Nie udało się pobrać historii auta (${res.status})`)
   return res.json()
+}
+
+export async function fetchKmDriven(zoneId: string | number, days = 30): Promise<Map<number, number>> {
+  const res = await fetch(`/api/cars/km-driven?zoneId=${zoneId}&days=${days}`)
+  if (!res.ok) throw new Error(`Nie udało się pobrać przejechanych km (${res.status})`)
+  const { cars } = (await res.json()) as KmDrivenResponse
+  return new Map(cars.map((c) => [c.carId, c.km]))
 }
 
 export async function fetchStatsHistory(zoneId: string | number, days = 7): Promise<StatsHistoryResponse> {
